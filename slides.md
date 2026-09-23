@@ -133,7 +133,7 @@ def double(n: int) -> int:
 double("5")  # returns '55', no error
 ```
 
-A **type checker** (ty, mypy) reads them before the code runs:
+Editors (VS Code, PyCharm) read them to offer completions, hover docs, and warnings as you type. A **type checker** (ty, mypy) reads them before the code runs:
 
 ```text
 error[invalid-argument-type]: Expected `int`, found `Literal["5"]`
