@@ -52,7 +52,9 @@ export default {
   html: true,
   allowLocalFiles: true,
   engine: async ({ marp }) => {
-    const shiki = await createHighlighter({ themes: [THEME], langs: LANGS })
+    // `marp -s` calls the engine once per render; keep one highlighter per process.
+    globalThis.deckShiki ??= createHighlighter({ themes: [THEME], langs: LANGS })
+    const shiki = await globalThis.deckShiki
     const loaded = new Set(shiki.getLoadedLanguages())
     marp.highlighter = (code, lang) =>
       shiki.codeToHtml(code, {
