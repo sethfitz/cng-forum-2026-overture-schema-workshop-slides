@@ -460,6 +460,35 @@ Only someone parsing through the Pydantic models ever saw the default.
 
 ---
 
+## Field names: aliases
+
+Python names fields in `snake_case`, and some names are off limits. The data keeps its own. An **alias** connects the two.
+
+```python
+class Place(Feature):
+    lsad: Annotated[str | None, Field(alias="LSAD")] = None  # the column is LSAD
+    class_: Annotated[PlaceClass, Field(alias="class")]      # class is a Python keyword
+```
+
+- Validation, JSON Schema, docs and PySpark all use the **alias**, the name in the data
+- Your Python code uses the field name: `place.lsad`
+- Data that says `lsad` is **ignored**, not rejected
+
+<!--
+Measured on overture-schema 2.0.0 with the my-schema template plus an aliased field:
+{"LSAD": "25"} populates lsad from a GeoJSON feature and from a flat row; {"lsad": "25"} leaves it
+None with no error (Feature ignores unknown keys). json_schema() lists "LSAD"; the Markdown docs'
+Name column says LSAD; the PySpark StructField is "LSAD". model_dump() writes lsad unless you
+pass by_alias=True.
+Overture's own schema aliases class_ to "class" on buildings, land use, land, water,
+infrastructure, roads, rail and the divisions types.
+PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note).
+schema-bootstrap currently lower-cases column names WITHOUT an alias, so its models silently
+ignore upper-case columns; add aliases by hand until that's fixed.
+-->
+
+---
+
 ## Types: primitives and numbers
 
 - Primitives: `str`, `bool`, `datetime`, `date`
