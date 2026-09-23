@@ -106,7 +106,7 @@ b    2      4      asphalt
 <!-- _class: dense -->
 
 <!--
-GeoJSON features in one FeatureCollection may differ in which keys they carry, not just in null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these rows are the seams. Modelling as if every feature can carry anything produces very wide tables.
+GeoJSON features in one FeatureCollection may differ in which keys they include, not just in null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these rows are the seams. Modelling as if every feature can include any key produces very wide tables.
 
 Measured with GDAL 3.13.3 (ogr2ogr). A nested GeoJSON object reads as String(JSON), then:
 - Shapefile: JSON text in a String(80) column (dBase strings cap at 254 chars). String arrays fail unless -mapFieldType StringList=String, then write as "(2:x,y)".
@@ -140,7 +140,7 @@ error[invalid-argument-type]: Expected `int`, found `Literal["5"]`
 ```
 
 - `str | None`: a string, or nothing
-- `Annotated[int, ...]`: an `int`, plus facts about it. Python ignores the facts; Pydantic and the schema tools read them.
+- `Annotated[int, ...]`: an `int` with extra details attached, such as limits and a description. Python ignores them; Pydantic and the schema tools read them.
 
 <!-- _class: dense -->
 
@@ -202,14 +202,14 @@ Overture uses Pydantic because being Python makes these possible:
 <!--
 Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema was hard to write correctly and verify, had little IDE support, no refactoring, generic tools couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema (schema/ in the repo) is deprecated, scheduled for removal December 2026.
 
-JSON output above is real json_schema(Rating) output, reordered, property title keys dropped. The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an optional field becomes {"type": "string"} (may be omitted) instead of anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it. Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models. Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model describes both shapes. The point is the model, not parsing into Python; the modelled shape feeds JSON Schema, docs and PySpark checks too.
+JSON output above is real json_schema(Rating) output, reordered, property title keys dropped. The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an optional field becomes {"type": "string"} (may be omitted) instead of anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it. Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models. Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model describes both shapes. The same shape feeds JSON Schema, the docs and the PySpark checks.
 -->
 
 ---
 
 ## Pydantic: `Field`
 
-`Field(...)` holds the facts about one field: what it means, its limits, its name in the data.
+`Field(...)` sets a field's description, its limits and its name in the data.
 
 ```python
 class Rating(BaseModel):
@@ -223,7 +223,7 @@ class Rating(BaseModel):
 - `alias=`: the field's name in the data (see **Field names: aliases**)
 
 <!--
-Measured on 2.0.0: the stars property in the generated JSON Schema carries description, minimum 1 and maximum 5; Rating(stars=7) fails with "Input should be less than or equal to 5".
+Measured on 2.0.0: the stars property in the generated JSON Schema has description, minimum 1 and maximum 5; Rating(stars=7) fails with "Input should be less than or equal to 5".
 
 Overture puts Field inside Annotated rather than writing stars: int = Field(...). The default stays visible after the =, and a Field inside Annotated can travel with a named type (NewTypes slide).
 -->
@@ -333,7 +333,7 @@ $ overture-schema validate bad-depth.yaml
      depth           -1 ← Input should be greater than or equal to 0
 ```
 
-The same rule, written once, checked everywhere.
+`ge=0` on `Depth` rejects the `-1`. The docs listed the same rule as `≥ 0`.
 
 ---
 
@@ -355,7 +355,7 @@ GeoJSON keeps `id` and `bbox` at the top level of a feature. `gpq` puts every co
 <!--
 Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/tap/gpq). Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may only appear at the top level...)". Negative control: setting one feature's depth to -1 in the stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1. Without --type, validate warns the data matches multiple types.
 
-Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only type/properties/geometry. It can't know which column is the id (GeoParquet has no id convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare (checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox column under properties. The 3-row extract above is GeoParquet 1.0 (DuckDB rewrote it), so it carries no covering either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews; last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the PySpark checks instead.
+Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only type/properties/geometry. It can't know which column is the id (GeoParquet has no id convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare (checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox column under properties. The 3-row extract above is GeoParquet 1.0 (DuckDB rewrote it), so it has no covering metadata either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews; last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the PySpark checks instead.
 -->
 
 ---
@@ -478,7 +478,7 @@ A default lives in the Python model. **It does not travel with the data.**
 
 - **Pydantic** fills it in when parsing: a value the input never had
 - **Parquet** has no defaults: absent is `null`
-- **Databases** can set a column `DEFAULT`: yet another source of truth, free to disagree with the model
+- **Databases** can set a column `DEFAULT`: yet another source of truth, which can disagree with the model
 - **SQL** over the data: `WHERE level = 0` misses every row that relied on the default
 
 If absence means something, say so in the field's **description**. If a value belongs in the data, the publisher writes it.
@@ -548,7 +548,7 @@ geometry: Annotated[
 <!--
 Checked on overture-schema 2.0.0: a Geometry field accepts a GeoJSON dict, WKB bytes and a WKT string alike, and rejects malformed input in each form. In Python the value is a Shapely geometry, and it serializes back to GeoJSON in JSON mode.
 
-Useful for someone scripting against the model; not the point of declaring the field.
+Useful when scripting against the model.
 -->
 
 ---
@@ -610,7 +610,7 @@ CountryCodeAlpha2 = NewType("CountryCodeAlpha2", Annotated[
 <!--
 Checked on overture-schema 2.0.0, a function taking CountryCodeAlpha2 called with "US": ty 0.0.81 (what the workshop Codespace runs): Expected `CountryCodeAlpha2`, found `Literal["US"]`; the model field reveals as CountryCodeAlpha2, and Place(country="US") passes. mypy: incompatible type "str"; expected "CountryCodeAlpha2". It also flags Place(country="US"), since mypy (without the Pydantic plugin) sees the NewType, not the string Pydantic accepts. Runtime: Place(country="USA") is rejected.
 
-pyright, which is what Pylance in VS Code runs, rejects the type itself: "Variable not allowed in type expression", and the field's type shows as Unknown. NewType's second argument is meant to be a class, not Annotated[...]; the library carries "# type: ignore [type-arg]" for mypy. That is why the Codespace installs ty rather than relying on Pylance.
+pyright, which is what Pylance in VS Code runs, rejects the type itself: "Variable not allowed in type expression", and the field's type shows as Unknown. NewType's second argument is meant to be a class, not Annotated[...]; the library adds "# type: ignore [type-arg]" for mypy. That is why the Codespace installs ty rather than relying on Pylance.
 -->
 
 ---
@@ -708,7 +708,7 @@ Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySp
 | `@require_if(...)` | *`speed_limit_kph` is required when `road_type` = `motorway`* | `if` / `then` | `check_require_if` |
 | `Field(ge=1, le=5)` | `≥ 1`, `≤ 5` | `minimum`, `maximum` | `check_bounds` |
 
-Validation enforces all three. Only the data forms reach anything else.
+Validation enforces all three. Only the rules written as data reach the docs, JSON Schema and PySpark.
 
 <!--
 PySpark drops the function silently: generation succeeds and the generated checks pass rows the Python model rejects.
@@ -936,7 +936,7 @@ Fidelity: a transcribing agent can drop enum values, paraphrase descriptions, or
 
 The generated models are a seed, not the final word: gatis-schema's bootstrap-models refuses to overwrite the hand-edited models, and `--into DIR` writes a fresh bootstrap to diff against them. That is what "Checkable" means on the slide.
 
-GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned spec snapshot), scripts/compare-json-schema. The upstream JSON Schema only permits the literal "(Same as Edge Types)" for edge_type: a note to a human, carried through every export.
+GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned spec snapshot), scripts/compare-json-schema. The upstream JSON Schema only permits the literal "(Same as Edge Types)" for edge_type: a note to a human, copied into every export.
 -->
 
 ---
