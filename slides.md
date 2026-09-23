@@ -746,7 +746,7 @@ experimental models.
 ## Manual creation
 
 1. Edit `my-schema/src/my_schema/models.py` in the Codespaces editor
-2. Registered a new model? Run `uv sync`
+2. Registered a new model? Run `uv sync` from the repository root
 3. Check the tools can see it, then validate some data:
 
 ```console
@@ -760,6 +760,14 @@ $ overture-schema validate my-schema/examples/bad.json
 ```
 
 <!-- _class: dense -->
+
+<!--
+No venv activation shown: the Codespace puts .venv/bin on PATH (remoteEnv in
+devcontainer.json, on the devcontainer-py312 branch / workshop#60, not on main yet).
+From the root, not my-schema/: measured 2026-09-23, `uv sync` inside my-schema/ syncs only that
+member and REMOVES the workshop's other packages (jupyter, duckdb, ...) from the shared .venv.
+A root `uv sync` registers a new entry point and keeps everything.
+-->
 
 ---
 
@@ -794,7 +802,7 @@ Examples: add [[examples.RoadSafetyRating]] rows to pyproject.toml and they appe
 
 ## STAC: `table:columns`
 
-STAC describes the **envelope**. The model describes the **contents**.
+STAC describes the **envelope**: the dataset's metadata. The model describes the **contents**: the structure of the table itself.
 
 ```console
 overture-codegen generate --format stac-table-columns --output-dir stac/
@@ -807,9 +815,11 @@ overture-codegen generate --format stac-table-columns --output-dir stac/
  "vector:geometry_types": ["MultiPolygon", "Polygon"]}
 ```
 
-A catalog built from the file alone gets column **names**. This adds types, descriptions and geometry types.
+A catalog built from the file alone gets column **names**. This adds types, descriptions and **declared** geometry types: what the model allows, not what the file contains.
 
 <!--
+Declared, like an enum's values: the model says MultiPolygon or Polygon; a given file may hold
+only one. Same limitation, other direction, as a DISTINCT over an extract.
 Open PR: OvertureMaps/schema#724. Constraints and enum values do not fit in a STAC
 column object; the generator logs what it had to drop.
 Overture's own catalog (stac.overturemaps.org, built by OvertureMaps/stac) is names-only
