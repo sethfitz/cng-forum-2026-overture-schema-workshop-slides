@@ -154,7 +154,7 @@ stars
 
 ## How they relate
 
-Pydantic **generates** JSON Schema from a model. Overture's wrapper adds the draft version, and lets an optional field be left out rather than set to `null`:
+Pydantic **generates** JSON Schema from a model:
 
 ```python
 from overture.schema.system.json_schema import json_schema
