@@ -28,8 +28,7 @@ pip install overture-schema overture-schema-codegen   # Python 3.10+
 ```
 
 <!--
-Codespaces run Python 3.12. Everything in this deck was run against the 2.0.0
-packages on PyPI.
+Codespaces run Python 3.12. Everything in this deck was run against the 2.0.0 packages on PyPI.
 -->
 
 ---
@@ -64,8 +63,7 @@ If your data already has a JSON Schema, it already has a model.
 <!-- _class: dense -->
 
 <!--
-Overture's own schema was first written this way, by hand, in YAML (schema/ in the repo;
-deprecated, removal December 2026).
+Overture's own schema was first written this way, by hand, in YAML (schema/ in the repo; deprecated, removal December 2026).
 -->
 
 ---
@@ -108,24 +106,18 @@ b    2      4      asphalt
 <!-- _class: dense -->
 
 <!--
-GeoJSON features in one FeatureCollection may differ in which keys they carry, not just in
-null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these rows are
-the seams. Modelling as if every feature can carry anything produces very wide tables.
-Measured with GDAL 3.13.3 (ogr2ogr): a nested GeoJSON object reads as String(JSON). To
-Shapefile it becomes JSON text in a String(80) column (dBase strings cap at 254 chars).
-String arrays fail on Shapefile unless -mapFieldType StringList=String, then write as
-"(2:x,y)". GeoJSON -> Parquet via ogr2ogr ALSO writes the object as a JSON string, not a
-struct: the format has structs, the conversion doesn't infer them. The model knows.
-CSV via ogr2ogr: geometry only with -lco GEOMETRY=AS_WKT (the default drops it); objects and
-arrays both become JSON text.
-GeoParquet 1.1 added native encodings "based on GeoArrow" (point, linestring, polygon, multi*);
-WKB stays "the preferred option for maximum portability" (geoparquet.org/releases/v1.1.0).
-Feature handles the envelope (fields in and out of properties), Geometry the encoding
-(GeoJSON coordinates or WKB), and BBox GeoJSON's [xmin, ymin, xmax, ymax] array or
-Parquet's xmin/ymin/xmax/ymax struct.
-Overture ships Parquet; GeoJSON is for single features, extracts and examples.
-In Pydantic terms: GeoJSON is JSON mode (model_validate_json), the flat row is Python mode
-(model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
+GeoJSON features in one FeatureCollection may differ in which keys they carry, not just in null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these rows are the seams. Modelling as if every feature can carry anything produces very wide tables.
+
+Measured with GDAL 3.13.3 (ogr2ogr). A nested GeoJSON object reads as String(JSON), then:
+- Shapefile: JSON text in a String(80) column (dBase strings cap at 254 chars). String arrays fail unless -mapFieldType StringList=String, then write as "(2:x,y)".
+- Parquet: also a JSON string, not a struct. The format has structs; the conversion doesn't infer them. The model knows.
+- CSV: geometry only with -lco GEOMETRY=AS_WKT (the default drops it). Objects and arrays both become JSON text.
+
+GeoArrow: GeoParquet 1.1 added native encodings "based on GeoArrow" (point, linestring, polygon, multi*); WKB stays "the preferred option for maximum portability" (geoparquet.org/releases/v1.1.0).
+
+Feature handles the envelope (fields in and out of properties), Geometry the encoding (GeoJSON coordinates or WKB), and BBox either GeoJSON's [xmin, ymin, xmax, ymax] array or Parquet's xmin/ymin/xmax/ymax struct.
+
+Overture ships Parquet; GeoJSON is for single features, extracts and examples. In Pydantic terms, GeoJSON is JSON mode (model_validate_json) and the flat row is Python mode (model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
 -->
 
 ---
@@ -176,19 +168,9 @@ Overture uses Pydantic because being Python makes these possible:
 <!-- _class: dense -->
 
 <!--
-Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema
-was hard to write correctly and verify, had little IDE support, no refactoring, generic tools
-couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema
-(schema/ in the repo) is deprecated, scheduled for removal December 2026.
-JSON output above is real json_schema(Rating) output, reordered, property title keys dropped.
-The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an
-optional field becomes {"type": "string"} (may be omitted) instead of
-anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it.
-Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models.
-Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and
-model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model
-describes both shapes. The point is the model, not parsing into Python; the modelled shape feeds
-JSON Schema, docs and PySpark checks too.
+Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema was hard to write correctly and verify, had little IDE support, no refactoring, generic tools couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema (schema/ in the repo) is deprecated, scheduled for removal December 2026.
+
+JSON output above is real json_schema(Rating) output, reordered, property title keys dropped. The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an optional field becomes {"type": "string"} (may be omitted) instead of anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it. Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models. Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model describes both shapes. The point is the model, not parsing into Python; the modelled shape feeds JSON Schema, docs and PySpark checks too.
 -->
 
 ---
@@ -262,8 +244,7 @@ class Bathymetry(OvertureFeature[Literal["base"], Literal["bathymetry"]]):
 ```
 
 <!--
-Condensed from packages/overture-schema-theme-base/src/overture/schema/base/bathymetry.py.
-Point out: the docstring, the geometry restriction, and a constraint (ge=0) riding on a named type.
+Condensed from packages/overture-schema-theme-base/src/overture/schema/base/bathymetry.py. Point out: the docstring, the geometry restriction, and a constraint (ge=0) riding on a named type.
 -->
 
 ---
@@ -317,21 +298,9 @@ $ gpq convert bathymetry.parquet --to geojson \
 GeoJSON keeps `id` and `bbox` at the top level of a feature. `gpq` puts every column under `properties`, so `jq` lifts those two out; the result is a valid GeoJSON feature.
 
 <!--
-Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with
-DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/tap/gpq).
-Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may
-only appear at the top level...)". Negative control: setting one feature's depth to -1 in the
-stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1.
-Without --type, validate warns the data matches multiple types.
-Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only
-type/properties/geometry. It can't know which column is the id (GeoParquet has no id
-convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare
-(checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own
-example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox
-column under properties. The 3-row extract above is GeoParquet 1.0 (DuckDB rewrote it), so it
-carries no covering either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews;
-last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the
-PySpark checks instead.
+Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/tap/gpq). Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may only appear at the top level...)". Negative control: setting one feature's depth to -1 in the stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1. Without --type, validate warns the data matches multiple types.
+
+Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only type/properties/geometry. It can't know which column is the id (GeoParquet has no id convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare (checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox column under properties. The 3-row extract above is GeoParquet 1.0 (DuckDB rewrote it), so it carries no covering either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews; last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the PySpark checks instead.
 -->
 
 ---
@@ -359,10 +328,9 @@ DuckDB writes each row flat, with only the geometry as GeoJSON. `Feature` reads 
 <!-- _class: dense -->
 
 <!--
-Run 2026-09-22 against release 2026-08-19.0 with the PyPI 2.0.0 packages: 99 of the 100 rows
-validate. The failing one is a known data issue (the data team knows).
-ST_AsGeoJSON converts only the geometry column; the record is not a GeoJSON Feature (no
-"type": "Feature", no properties envelope). The gpq route produces real GeoJSON features.
+Run 2026-09-22 against release 2026-08-19.0 with the PyPI 2.0.0 packages: 99 of the 100 rows validate. The failing one is a known data issue (the data team knows).
+
+ST_AsGeoJSON converts only the geometry column; the record is not a GeoJSON Feature (no "type": "Feature", no properties envelope). The gpq route produces real GeoJSON features.
 -->
 
 ---
@@ -416,8 +384,7 @@ from overture.schema.system.feature import Feature
 ```
 
 <!--
-Import Feature from overture.schema.system.feature. The shorter
-`from overture.schema.system import Feature` fails on PyPI 2.0.0 (fixed on main, not released).
+Import Feature from overture.schema.system.feature. The shorter `from overture.schema.system import Feature` fails on PyPI 2.0.0 (fixed on main, not released).
 -->
 
 ---
@@ -453,9 +420,7 @@ A default lives in the Python model. **It does not travel with the data.**
 If absence means something, say so in the field's **description**. If a value belongs in the data, the publisher writes it.
 
 <!--
-Source: OvertureMaps/schema#695 (policy, open). Measured there against release 2026-08-19.0:
-every non-null default then in the schema occurred in zero published rows. PR #697 removed them.
-Only someone parsing through the Pydantic models ever saw the default.
+Source: OvertureMaps/schema#695 (policy, open). Measured there against release 2026-08-19.0: every non-null default then in the schema occurred in zero published rows. PR #697 removed them. Only someone parsing through the Pydantic models ever saw the default.
 -->
 
 ---
@@ -475,16 +440,11 @@ class Place(Feature):
 - Data that says `lsad` is **ignored**, not rejected
 
 <!--
-Measured on overture-schema 2.0.0 with the my-schema template plus an aliased field:
-{"LSAD": "25"} populates lsad from a GeoJSON feature and from a flat row; {"lsad": "25"} leaves it
-None with no error (Feature ignores unknown keys). json_schema() lists "LSAD"; the Markdown docs'
-Name column says LSAD; the PySpark StructField is "LSAD". model_dump() writes lsad unless you
-pass by_alias=True.
-Overture's own schema aliases class_ to "class" on buildings, land use, land, water,
-infrastructure, roads, rail and the divisions types.
-PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note).
-schema-bootstrap currently lower-cases column names WITHOUT an alias, so its models silently
-ignore upper-case columns; add aliases by hand until that's fixed.
+Measured on overture-schema 2.0.0 with the my-schema template plus an aliased field: {"LSAD": "25"} populates lsad from a GeoJSON feature and from a flat row; {"lsad": "25"} leaves it None with no error (Feature ignores unknown keys). json_schema() lists "LSAD"; the Markdown docs' Name column says LSAD; the PySpark StructField is "LSAD". model_dump() writes lsad unless you pass by_alias=True.
+
+Overture's own schema aliases class_ to "class" on buildings, land use, land, water, infrastructure, roads, rail and the divisions types.
+
+PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note). schema-bootstrap currently lower-cases column names WITHOUT an alias, so its models silently ignore upper-case columns; add aliases by hand until that's fixed.
 -->
 
 ---
@@ -522,9 +482,8 @@ geometry: Annotated[
 - List one type or several; docs say *Allowed geometry types: MultiPolygon, Polygon*, and validation rejects anything else
 
 <!--
-Checked on overture-schema 2.0.0: a Geometry field accepts a GeoJSON dict, WKB bytes and a WKT
-string alike, and rejects malformed input in each form. In Python the value is a Shapely
-geometry, and it serializes back to GeoJSON in JSON mode.
+Checked on overture-schema 2.0.0: a Geometry field accepts a GeoJSON dict, WKB bytes and a WKT string alike, and rejects malformed input in each form. In Python the value is a Shapely geometry, and it serializes back to GeoJSON in JSON mode.
+
 Useful for someone scripting against the model; not the point of declaring the field.
 -->
 
@@ -562,14 +521,9 @@ The feature's page flattens the struct into dotted rows:
 `survey`'s description comes from its **field**; `Survey`'s docstring goes on its own page.
 
 <!--
-Real output: overture-codegen generate --format markdown --tag my_schema, from the
-my-schema template, survey rows only (geometry, stars and the rest omitted). Constraints on a struct's fields show on
-the struct's own page, not on the flattened rows.
-Write a description on every field: it says what the field is FOR, which the type's docstring
-can't (origin: Address and destination: Address share a docstring). Today a field with no
-description renders an empty cell, even when its type has a docstring (2.0.0, checked for
-structs and enums). Codegen will probably fall back to the type's docstring in future
-(tracked in the schema workspace); a field's own description will still win.
+Real output: overture-codegen generate --format markdown --tag my_schema, from the my-schema template, survey rows only (geometry, stars and the rest omitted). Constraints on a struct's fields show on the struct's own page, not on the flattened rows.
+
+Write a description on every field: it says what the field is FOR, which the type's docstring can't (origin: Address and destination: Address share a docstring). Today a field with no description renders an empty cell, even when its type has a docstring (2.0.0, checked for structs and enums). Codegen will probably fall back to the type's docstring in future (tracked in the schema workspace); a field's own description will still win.
 -->
 
 ---
@@ -590,16 +544,9 @@ CountryCodeAlpha2 = NewType("CountryCodeAlpha2", Annotated[
 - **Type safety**: a type checker (ty, mypy) won't let a plain `str` stand in for a `CountryCodeAlpha2`
 
 <!--
-Checked on overture-schema 2.0.0, a function taking CountryCodeAlpha2 called with "US":
-ty 0.0.81 (what the workshop Codespace runs): Expected `CountryCodeAlpha2`, found
-`Literal["US"]`; the model field reveals as CountryCodeAlpha2, and Place(country="US") passes.
-mypy: incompatible type "str"; expected "CountryCodeAlpha2". It also flags
-Place(country="US"), since mypy (without the Pydantic plugin) sees the NewType, not the string
-Pydantic accepts. Runtime: Place(country="USA") is rejected.
-pyright, which is what Pylance in VS Code runs, rejects the type itself: "Variable not allowed
-in type expression", and the field's type shows as Unknown. NewType's second argument is meant
-to be a class, not Annotated[...]; the library carries "# type: ignore [type-arg]" for mypy.
-That is why the Codespace installs ty rather than relying on Pylance.
+Checked on overture-schema 2.0.0, a function taking CountryCodeAlpha2 called with "US": ty 0.0.81 (what the workshop Codespace runs): Expected `CountryCodeAlpha2`, found `Literal["US"]`; the model field reveals as CountryCodeAlpha2, and Place(country="US") passes. mypy: incompatible type "str"; expected "CountryCodeAlpha2". It also flags Place(country="US"), since mypy (without the Pydantic plugin) sees the NewType, not the string Pydantic accepts. Runtime: Place(country="USA") is rejected.
+
+pyright, which is what Pylance in VS Code runs, rejects the type itself: "Variable not allowed in type expression", and the field's type shows as Unknown. NewType's second argument is meant to be a class, not Annotated[...]; the library carries "# type: ignore [type-arg]" for mypy. That is why the Codespace installs ty rather than relying on Pylance.
 -->
 
 ---
@@ -620,8 +567,8 @@ A `DISTINCT` over an extract finds only the values that extract contains. Listin
 
 <!--
 This is the most valuable thing attendees will take home.
-The schema-bootstrap slides later show the extract problem on real data: TIGER's LSAD declares
-14 codes in its ISO 19110 catalogue; the Utah extract contains 4, plus one (35) no catalogue lists.
+
+The schema-bootstrap slides later show the extract problem on real data: TIGER's LSAD declares 14 codes in its ISO 19110 catalogue; the Utah extract contains 4, plus one (35) no catalogue lists.
 -->
 
 ---
@@ -684,9 +631,7 @@ class RoadSafetyRating(Feature):
 Express rules with the bounds, enums and decorators we provide, or subclass an available constraint.
 
 <!--
-Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySpark
-codegen rejects constraint classes it doesn't know (OvertureMaps/schema#632).
-PatternConstraint is being reworked; don't teach subclassing it yet.
+Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySpark codegen rejects constraint classes it doesn't know (OvertureMaps/schema#632). PatternConstraint is being reworked; don't teach subclassing it yet.
 -->
 
 ---
@@ -702,10 +647,9 @@ PatternConstraint is being reworked; don't teach subclassing it yet.
 Validation enforces all three. Only the data forms reach anything else.
 
 <!--
-PySpark drops the function silently: generation succeeds and the generated checks
-pass rows the Python model rejects.
-A decorator rule reports only once every field is valid, so show it with a row
-that is otherwise clean (my-schema/examples/motorway-without-speed-limit.json).
+PySpark drops the function silently: generation succeeds and the generated checks pass rows the Python model rejects.
+
+A decorator rule reports only once every field is valid, so show it with a row that is otherwise clean (my-schema/examples/motorway-without-speed-limit.json).
 -->
 
 ---
@@ -740,8 +684,7 @@ my-schema/
 The `overture.models` entry point is how the tools find your models.
 
 <!--
-The Codespaces environment ships this as a template package (my-schema/ in the
-workshop repo), already installed in editable mode.
+The Codespaces environment ships this as a template package (my-schema/ in the workshop repo), already installed in editable mode.
 -->
 
 ---
@@ -765,9 +708,7 @@ my_schema = "my_schema.tags:my_schema_provider"
 Now `--tag my_schema` works in `list-types`, `validate`, `json-schema` and `overture-codegen`.
 
 <!--
-The feature, system: and overture: tag namespaces are reserved; a provider that sets
-one is warned and ignored. Tags can say more than "mine": AUTHORING.md's example tags
-experimental models.
+The feature, system: and overture: tag namespaces are reserved; a provider that sets one is warned and ignored. Tags can say more than "mine": AUTHORING.md's example tags experimental models.
 -->
 
 ---
@@ -791,13 +732,7 @@ $ overture-schema validate my-schema/examples/bad.json
 <!-- _class: dense -->
 
 <!--
-No venv activation shown: the Codespace puts .venv/bin on PATH (remoteEnv in
-devcontainer.json, on the devcontainer-py312 branch / workshop#60, not on main yet).
-Why --all-packages: my-schema is a uv workspace member sharing the root .venv. Measured
-2026-09-23: a bare `uv sync` inside my-schema/ syncs only that member and REMOVES the
-workshop's other packages (jupyter, duckdb, ...). `uv sync --all-packages` keeps them and
-registers a new entry point from any directory (same as schema-workspace's `make install`;
-the workshop has no extras, so --all-extras adds nothing).
+No venv activation shown: the Codespace puts .venv/bin on PATH (remoteEnv in devcontainer.json, on the devcontainer-py312 branch / workshop#60, not on main yet). Why --all-packages: my-schema is a uv workspace member sharing the root .venv. Measured 2026-09-23: a bare `uv sync` inside my-schema/ syncs only that member and REMOVES the workshop's other packages (jupyter, duckdb, ...). `uv sync --all-packages` keeps them and registers a new entry point from any directory (same as schema-workspace's `make install`; the workshop has no extras, so --all-extras adds nothing).
 -->
 
 ---
@@ -825,8 +760,7 @@ overture-codegen generate --format markdown \
 > | `road_type` | `RoadType` (optional) | Kind of road that was rated. *`speed_limit_kph` is required when `road_type` = `motorway`* |
 
 <!--
-Examples: add [[examples.RoadSafetyRating]] rows to pyproject.toml and they appear on the page
-(editable/source installs only; codegen reads pyproject.toml by walking up from the module).
+Examples: add [[examples.RoadSafetyRating]] rows to pyproject.toml and they appear on the page (editable/source installs only; codegen reads pyproject.toml by walking up from the module).
 -->
 
 ---
@@ -849,12 +783,11 @@ overture-codegen generate --format stac-table-columns --output-dir stac/
 A catalog built from the file alone gets column **names**. This adds types, descriptions and **declared** geometry types: what the model allows, not what the file contains.
 
 <!--
-Declared, like an enum's values: the model says MultiPolygon or Polygon; a given file may hold
-only one. Same limitation, other direction, as a DISTINCT over an extract.
-Open PR: OvertureMaps/schema#724. Constraints and enum values do not fit in a STAC
-column object; the generator logs what it had to drop.
-Overture's own catalog (stac.overturemaps.org, built by OvertureMaps/stac) is names-only
-today; stac#130 will consume this output once #724 lands.
+Declared, like an enum's values: the model says MultiPolygon or Polygon; a given file may hold only one. Same limitation, other direction, as a DISTINCT over an extract.
+
+Open PR: OvertureMaps/schema#724. Constraints and enum values do not fit in a STAC column object; the generator logs what it had to drop.
+
+Overture's own catalog (stac.overturemaps.org, built by OvertureMaps/stac) is names-only today; stac#130 will consume this output once #724 lands.
 -->
 
 ---
@@ -917,12 +850,7 @@ class Lsad(str, DocumentedEnum):
 The tool finds the values. **What they mean is your job.**
 
 <!--
-Lsad, not LSAD: Python names classes in PascalCase (PEP 8's "CapWords"), so the tool builds a
-class name from the column name by lower-casing it and capitalising each word: LSAD -> Lsad,
-place_type -> PlaceType. It can't tell an acronym from a word. PEP 8 itself keeps acronyms
-upper-case (HTTPServerError), so renaming the class LSAD is fine; it's a Python name only.
-The codes are untouched: the value is still "25". Members are UPPER_CASE constants, and a
-code starting with a digit gets a V_ prefix because a Python name can't start with one.
+Lsad, not LSAD: Python names classes in PascalCase (PEP 8's "CapWords"), so the tool builds a class name from the column name by lower-casing it and capitalising each word: LSAD -> Lsad, place_type -> PlaceType. It can't tell an acronym from a word. PEP 8 itself keeps acronyms upper-case (HTTPServerError), so renaming the class LSAD is fine; it's a Python name only. The codes are untouched: the value is still "25". Members are UPPER_CASE constants, and a code starting with a digit gets a V_ prefix because a Python name can't start with one.
 -->
 
 ---
@@ -938,21 +866,13 @@ An agent that reads a spec and writes the models is **transcribing**, and transc
 **Example:** GATIS, the US active-transportation spec, is published as a spreadsheet export. Its models are generated from a pinned snapshot, a second script diffs the generated JSON Schema against upstream's, and the process turned up defects in the spec itself.
 
 <!--
-Seth, 2026-09-22: when he first built out the Overture models he had an agent write the models
-directly (with Sonnet 3.7, he thinks), and they were subject to lots of problems. Treated as code
-generation, where code generates other code, the result is checkable and traceable to a source
-of truth.
-Fidelity: a transcribing agent can drop enum values, paraphrase descriptions, or add constraints
-the spec never stated, and nothing flags it. (Illustrative failure modes, not a record of what
-went wrong in Seth's Overture attempt.) A generator copies what is there; when it is wrong, it is
-wrong the same way on every field, so a diff shows it. That answers "but the agent wrote the
-script too."
-The generated models are a seed, not the final word: gatis-schema's bootstrap-models refuses to
-overwrite the hand-edited models, and `--into DIR` writes a fresh bootstrap to diff against them.
-That is what "Checkable" means on the slide.
-GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned spec snapshot),
-scripts/compare-json-schema. The upstream JSON Schema only permits the literal
-"(Same as Edge Types)" for edge_type: a note to a human, carried through every export.
+Seth, 2026-09-22: when he first built out the Overture models he had an agent write the models directly (with Sonnet 3.7, he thinks), and they were subject to lots of problems. Treated as code generation, where code generates other code, the result is checkable and traceable to a source of truth.
+
+Fidelity: a transcribing agent can drop enum values, paraphrase descriptions, or add constraints the spec never stated, and nothing flags it. (Illustrative failure modes, not a record of what went wrong in Seth's Overture attempt.) A generator copies what is there; when it is wrong, it is wrong the same way on every field, so a diff shows it. That answers "but the agent wrote the script too."
+
+The generated models are a seed, not the final word: gatis-schema's bootstrap-models refuses to overwrite the hand-edited models, and `--into DIR` writes a fresh bootstrap to diff against them. That is what "Checkable" means on the slide.
+
+GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned spec snapshot), scripts/compare-json-schema. The upstream JSON Schema only permits the literal "(Same as Edge Types)" for edge_type: a note to a human, carried through every export.
 -->
 
 ---
