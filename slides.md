@@ -123,16 +123,16 @@ The same rule, written once, checked everywhere.
 ## Example: a road-safety rating
 
 ```python
-from typing import Annotated, Literal, NewType
+from typing import Annotated, NewType
 from pydantic import Field
-from overture.schema.common import OvertureFeature
+from overture.schema.system.feature import Feature
 from overture.schema.system.geometric import Geometry, GeometryType, GeometryTypeConstraint
 from overture.schema.system.numeric import uint8
 
 StarRating = NewType("StarRating", Annotated[
     uint8, Field(ge=1, le=5, description="Star rating from 1 (least safe) to 5 (safest).")])
 
-class RoadSafetyRating(OvertureFeature[Literal["road_safety"], Literal["rating"]]):
+class RoadSafetyRating(Feature):
     """A road-safety star rating for a stretch of road."""
 
     geometry: Annotated[Geometry, GeometryTypeConstraint(GeometryType.LINE_STRING),
@@ -152,16 +152,14 @@ We'll take this apart piece by piece over the next slides.
 
 | Class | Use it for | You get |
 |---|---|---|
+| `Feature` | **your features** | `geometry`, optional `id` and `bbox`, GeoJSON in and out |
 | `BaseModel` (Pydantic) | nested structs | nothing extra |
-| `Feature` | any geospatial feature | `geometry`, optional `id` and `bbox`, GeoJSON in/out |
-| `OvertureFeature` | features with a theme and type | required `id`, `theme`, `type`, `version`, optional `sources` |
+| `OvertureFeature` | Overture's own themes | adds required `id`, `theme`, `type`, `version`; optional `sources` |
 
-Your data does not have to be Overture data to use `OvertureFeature`.
-Its `theme` tag lets the tools select **your** models.
+Your data does not have to be Overture data. Start from `Feature`.
 
 ```python
 from overture.schema.system.feature import Feature
-from overture.schema.common import OvertureFeature
 ```
 
 <!--
@@ -186,7 +184,25 @@ height: float64 | None = None   # optional: may be left out
 
 - No default → **required**
 - `X | None = None` → **optional**
-- `None` is the only default. Don't invent values the data doesn't have.
+- `None` is the only default
+
+---
+
+## Why no other defaults?
+
+A default lives in the Python model. **It does not travel with the data.**
+
+- **Pydantic** fills it in when parsing: a value the input never had
+- **Parquet** has no defaults: absent is `null`
+- **SQL** over the data: `WHERE level = 0` misses every row that relied on the default
+
+If absence means something, say so in the field's **description**. If a value belongs in the data, the publisher writes it.
+
+<!--
+Source: OvertureMaps/schema#695 (policy, open). Measured there against release 2026-08-19.0:
+every non-null default then in the schema occurred in zero published rows. PR #697 removed them.
+Only someone parsing through the Pydantic models ever saw the default.
+-->
 
 ---
 
@@ -200,7 +216,7 @@ height: float64 | None = None   # optional: may be left out
 | `int8` `int16` `int32` `int64` | `float32` `float64` |
 | `uint8` `uint16` `uint32` | |
 
-Sized types map cleanly to Parquet, Arrow, Spark and JSON Schema. When unsure, use `int32` and `float64`.
+Sized types map directly to Parquet, Arrow and Spark column types. JSON only has integers and numbers, so JSON Schema keeps an integer's size as `minimum`/`maximum` bounds and a float's not at all. When unsure, use `int32` and `float64`.
 
 ---
 
@@ -213,7 +229,8 @@ geometry: Annotated[
 ]
 ```
 
-- `Geometry` wraps a Shapely geometry
+- Reads GeoJSON, WKB (as in GeoParquet) or WKT; writes GeoJSON to JSON
+- In Python, you can work with it as a Shapely geometry
 - Restrict the allowed shapes: `POINT`, `LINE_STRING`, `POLYGON`,
   `MULTI_POINT`, `MULTI_LINE_STRING`, `MULTI_POLYGON`, `GEOMETRY_COLLECTION`
 - Docs say *Allowed geometry types: Point*; validation rejects anything else
@@ -231,11 +248,31 @@ class Survey(BaseModel):
     assessor: str
     surveyed_on: date | None = None
 
-class RoadSafetyRating(OvertureFeature[...]):
+class RoadSafetyRating(Feature):
     survey: Survey | None = None
 ```
 
-In the docs, a struct flattens into rows: `survey.assessor`, `survey.surveyed_on`.
+---
+
+## Structs in the docs
+
+The feature's page flattens the struct into dotted rows:
+
+| Name | Type | Description |
+|---|---|---|
+| `geometry` | geometry | The rated stretch of road. *Allowed geometry types: LineString* |
+| `stars` | `StarRating` | Star rating from 1 (least safe) to 5 (safest). |
+| `survey` | `Survey` (optional) | |
+| `survey.assessor` | `string` | |
+| `survey.surveyed_on` | `date` (optional) | |
+
+`Survey` also gets its own page, with its docstring and fields.
+
+<!--
+Real output: overture-codegen generate --format markdown --tag my_schema, from the
+my-schema template (id and bbox rows omitted). Constraints on a struct's fields show on
+the struct's own page, not on the flattened rows.
+-->
 
 ---
 
@@ -301,43 +338,50 @@ The docs render these as English: *`country` is forbidden when `subtype` = `coun
 
 ---
 
-## Custom constraints: data, not functions
+## Custom rules: data, not functions
 
 ```python
 # ✗ A function: it runs, but no tool can see what it checks
-assessor: Annotated[str | None, AfterValidator(check_code)] = None
+class RoadSafetyRating(Feature):
+    @model_validator(mode="after")
+    def motorways_need_speed_limit(self):
+        if self.road_type == "motorway" and self.speed_limit_kph is None:
+            raise ValueError("speed_limit_kph is required on motorways")
+        return self
 ```
 
 ```python
-# ✓ A constraint: the rule is data that tools can read
-class AssessorCodeConstraint(PatternConstraint):
-    """Allows only three-letter upper-case assessor codes."""
-    def __init__(self) -> None:
-        super().__init__(pattern=r"^[A-Z]{3}$",
-                         error_message="Invalid assessor code: {value}")
-
-assessor: Annotated[str | None, AssessorCodeConstraint()] = None
+# ✓ Data: the same rule, in a form tools can read
+@require_if(["speed_limit_kph"], FieldEqCondition("road_type", "motorway"))
+class RoadSafetyRating(Feature):
+    ...
 ```
 
-Subclass a constraint we provide, or express the rule with bounds, enums and decorators.
+Express rules with the bounds, enums and decorators we provide, or subclass a provided constraint.
+
+<!--
+Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySpark
+codegen rejects constraint classes it doesn't know (OvertureMaps/schema#632).
+PatternConstraint is being reworked; don't teach subclassing it yet.
+-->
 
 ---
 
 ## What each tool sees
 
-| The same rule, written as… | Docs | JSON Schema |
-|---|---|---|
-| `@field_validator` / `AfterValidator(func)` | nothing | nothing |
-| `PatternConstraint` subclass | *Allows only three-letter upper-case assessor codes* | `"pattern": "^[A-Z]{3}$"` |
-| `Field(ge=1, le=5)` | `≥ 1`, `≤ 5` | `minimum`, `maximum` |
+| The same rule, written as… | Docs | JSON Schema | PySpark |
+|---|---|---|---|
+| `@model_validator` function | nothing | nothing | nothing |
+| `@require_if(...)` | *`speed_limit_kph` is required when `road_type` = `motorway`* | `if` / `then` | `check_require_if` |
+| `Field(ge=1, le=5)` | `≥ 1`, `≤ 5` | `minimum`, `maximum` | `check_bounds` |
 
-Validation enforces all three. Only constraints show up anywhere else.
+Validation enforces all three. Only the data forms reach anything else.
 
 <!--
-PySpark codegen today covers bounds, enums, lengths, geometry types and Overture's own
-named constraints. A third party's PatternConstraint subclass (or raw Field(pattern=))
-makes `--format pyspark` fail ("No valid value defined for check_pattern"). If asked:
-known gap, tracked upstream.
+PySpark drops the function silently: generation succeeds and the generated checks
+pass rows the Python model rejects.
+A decorator rule reports only once every field is valid, so show it with a row
+that is otherwise clean (my-schema/examples/motorway-without-speed-limit.json).
 -->
 
 ---
@@ -352,41 +396,75 @@ known gap, tracked upstream.
 
 ```toml
 [project]
-name = "road-safety"
+name = "my-schema"
 version = "0.1.0"
-requires-python = ">=3.10"
 dependencies = ["overture-schema>=2.0.0", "overture-schema-codegen>=2.0.0"]
 
 [project.entry-points."overture.models"]
-road_safety_rating = "road_safety:RoadSafetyRating"
+road_safety_rating = "my_schema:RoadSafetyRating"
 ```
 
 ```text
-road-safety/
+my-schema/
 ├── pyproject.toml
-└── src/road_safety/
+└── src/my_schema/
     ├── __init__.py     # re-exports the models
-    └── models.py
+    ├── models.py
+    └── tags.py         # next slide
 ```
 
 The `overture.models` entry point is how the tools find your models.
+
+<!--
+The Codespaces environment ships this as a template package (my-schema/ in the
+workshop repo), already installed in editable mode.
+-->
+
+---
+
+## Selecting your models: tags
+
+The tools select models by **tag**. A tag provider tags your package's models:
+
+```python
+def my_schema_provider(types, key, tags):
+    if key.entry_point.startswith("my_schema:"):
+        tags.add("my_schema")
+    return tags
+```
+
+```toml
+[project.entry-points."overture.tag_providers"]
+my_schema = "my_schema.tags:my_schema_provider"
+```
+
+Now `--tag my_schema` works in `list-types`, `validate`, `json-schema` and `overture-codegen`.
+
+<!--
+The feature, system: and overture: tag namespaces are reserved; a provider that sets
+one is warned and ignored. Tags can say more than "mine": AUTHORING.md's example tags
+experimental models.
+-->
 
 ---
 
 ## Manual creation
 
-1. Write `models.py`
-2. Install it: `pip install -e .`
-3. Check the tools can see it:
+1. Edit `my-schema/src/my_schema/models.py` in the Codespaces editor
+2. Registered a new model? Run `uv sync`
+3. Check the tools can see it, then validate some data:
 
 ```console
-$ overture-schema list-types
-road_safety_rating  feature  overture  overture:theme=road_safety
+$ overture-schema list-types --tag my_schema
+road_safety_rating  feature  my_schema
 
-$ overture-schema validate --type road_safety_rating bad.json
-            stars      7 ← Input should be less than or equal to 5
-   assessor.value "irap" ← Invalid assessor code: irap
+$ overture-schema validate my-schema/examples/bad.json
+          geometry      Point ← geometry type not allowed: <GeometryType.POINT: …>
+             stars          7 ← Input should be less than or equal to 5
+   survey.rated_by       "me" ← Extra inputs are not permitted
 ```
+
+<!-- _class: dense -->
 
 ---
 
@@ -400,7 +478,7 @@ $ overture-schema validate --type road_safety_rating bad.json
 
 ```console
 overture-codegen generate --format markdown \
-    --tag overture:theme=road_safety --output-dir docs/
+    --tag my_schema --output-dir docs/
 ```
 
 > **RoadSafetyRating**
@@ -410,7 +488,7 @@ overture-codegen generate --format markdown \
 > |---|---|---|
 > | `geometry` | geometry | The rated stretch of road. *Allowed geometry types: LineString* |
 > | `stars` | `StarRating` | Star rating from 1 (least safe) to 5 (safest). |
-> | `assessor` | `string` (optional) | *Allows only three-letter upper-case assessor codes.* |
+> | `road_type` | `RoadType` (optional) | Kind of road that was rated. *`speed_limit_kph` is required when `road_type` = `motorway`* |
 
 <!--
 Examples: add [[examples.RoadSafetyRating]] rows to pyproject.toml and they appear on the page
@@ -524,7 +602,7 @@ Point a coding agent at the source of truth and ask for a model.
 ## Your turn
 
 1. Pick a dataset (or bring your own)
-2. Bootstrap a model, or start from the example package
+2. Bootstrap a model, or copy the example in `my-schema`
 3. Fill in the descriptions and the **meanings** of every coded value
 4. Generate the docs and read them
 
