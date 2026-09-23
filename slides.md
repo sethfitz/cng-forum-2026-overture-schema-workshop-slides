@@ -168,7 +168,7 @@ json_schema(Rating)
                 "road_type": {"type": "string"}}}
 ```
 
-Both are models. Overture uses Pydantic because being Python makes these possible:
+Overture uses Pydantic because being Python makes these possible:
 
 - **Tooling**: editor support, and generators for Markdown docs and PySpark validation
 - **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model describe a GeoJSON feature *and* a flat Parquet row
