@@ -507,7 +507,7 @@ Every field that uses it inherits the description and the checks, and the docs g
 
 ## Types: enums with meanings
 
-Most spatial data has coded columns. Write down what the codes **mean**.
+Most spatial data has coded columns. Write down what the codes **are** and what they **mean**.
 
 ```python
 class Material(str, DocumentedEnum):
@@ -517,10 +517,12 @@ class Material(str, DocumentedEnum):
     TIMBER = ("timber", "Structural wood framing or log construction.")
 ```
 
-A list of legal values **and** what each one means: knowledge that otherwise lives in a PDF or in someone's head.
+A `DISTINCT` over an extract finds only the values that extract contains. Listing every legal value, and what each one means, records what otherwise lives in a PDF or in someone's head.
 
 <!--
 This is the most valuable thing attendees will take home.
+The schema-bootstrap slides later show the extract problem on real data: TIGER's LSAD declares
+14 codes in its ISO 19110 catalogue; the Utah extract contains 4, plus one (35) no catalogue lists.
 -->
 
 ---
