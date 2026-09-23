@@ -323,6 +323,37 @@ PySpark checks instead.
 
 ---
 
+## Validating GeoParquet with DuckDB
+
+```console
+$ duckdb <<'SQL' | overture-schema validate --type division --show-field id -
+INSTALL spatial; LOAD spatial; SET s3_region='us-west-2';
+COPY (SELECT ST_AsGeoJSON(geometry) AS geometry, * EXCLUDE geometry
+      FROM read_parquet('s3://overturemaps-us-west-2/release/2026-08-19.0/theme=divisions/type=division/*.parquet')
+      LIMIT 100)
+TO '/dev/stdout' (FORMAT JSON, ARRAY false);
+SQL
+```
+
+```text
+ ─ [0] id=23e81262-d6ed-45a3-a1a0-4bc6a2... ──────────────────────
+        id "23e81262-d6ed-45a3-a1a0-4bc6a2a887d8"
+   country          <missing> ← Input should be a valid string
+```
+
+No `jq` this time: each line is a flat row carrying a GeoJSON geometry, and `Feature` reads flat rows directly. The failure is real data: a locality at the South Pole, with no country.
+
+<!-- _class: dense -->
+
+<!--
+Run 2026-09-22 against release 2026-08-19.0 with the PyPI 2.0.0 packages: 99 of the 100 rows
+validate. The failing one is a known data issue (the data team knows).
+ST_AsGeoJSON converts only the geometry column; the record is not a GeoJSON Feature (no
+"type": "Feature", no properties envelope). The gpq route produces real GeoJSON features.
+-->
+
+---
+
 <!-- _class: divider -->
 
 # How
