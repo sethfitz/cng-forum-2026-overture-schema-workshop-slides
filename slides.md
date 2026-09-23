@@ -535,7 +535,7 @@ the struct's own page, not on the flattened rows.
 
 ## Types: NewTypes
 
-Give a type a **name**, a **description** and **constraints**, then reuse it.
+Define a **domain type** once: a name, a description and constraints.
 
 ```python
 CountryCodeAlpha2 = NewType("CountryCodeAlpha2", Annotated[
@@ -545,7 +545,19 @@ CountryCodeAlpha2 = NewType("CountryCodeAlpha2", Annotated[
 ])
 ```
 
-Every field that uses it inherits the description and the checks, and the docs give it its own page.
+- **Reuse**: every field that uses it inherits the description and the checks, and the docs give it its own page
+- **Type safety**: a type checker (mypy) won't let a plain `str` stand in for a `CountryCodeAlpha2`
+
+<!--
+Checked on overture-schema 2.0.0, a function taking CountryCodeAlpha2 called with "US":
+mypy: incompatible type "str"; expected "CountryCodeAlpha2". It also flags
+Place(country="US"), since mypy (without the Pydantic plugin) sees the NewType, not the string
+Pydantic accepts. Runtime: Place(country="USA") is rejected.
+pyright, which is what Pylance in VS Code runs, rejects the type itself: "Variable not allowed
+in type expression", and the field's type shows as Unknown. NewType's second argument is meant
+to be a class, not Annotated[...]; the library carries "# type: ignore [type-arg]" for mypy.
+So in the Codespace, hover and type checking won't show the domain type.
+-->
 
 ---
 
