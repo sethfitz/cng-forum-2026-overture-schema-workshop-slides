@@ -296,9 +296,9 @@ The same rule, written once, checked everywhere.
 
 ---
 
-## Validating GeoParquet
+## Validating GeoParquet as GeoJSON features
 
-`overture-schema validate` reads GeoJSON. [`gpq`](https://github.com/planetlabs/gpq) converts GeoParquet to it:
+[`gpq`](https://github.com/planetlabs/gpq) converts GeoParquet to GeoJSON features:
 
 ```console
 $ gpq convert bathymetry.parquet --to geojson \
@@ -309,7 +309,7 @@ $ gpq convert bathymetry.parquet --to geojson \
 ✓ Successfully validated <stdin>
 ```
 
-`gpq` puts every column under `properties`, `id` and `bbox` included. GeoJSON keeps those two at the top level, so `jq` moves them: the nested vs tabular gap again.
+GeoJSON keeps `id` and `bbox` at the top level of a feature. `gpq` puts every column under `properties`, so `jq` lifts those two out; the result is a valid GeoJSON feature.
 
 <!--
 Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with
@@ -317,13 +317,16 @@ DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/t
 Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may
 only appear at the top level...)". Negative control: setting one feature's depth to -1 in the
 stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1.
-Without --type, validate warns the data matches multiple types. For data at scale, use the
+Without --type, validate warns the data matches multiple types.
+Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only
+type/properties/geometry. It can't know which column is the id (GeoParquet has no id
+convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare. For data at scale, use the
 PySpark checks instead.
 -->
 
 ---
 
-## Validating GeoParquet with DuckDB
+## Validating GeoParquet as flat rows
 
 ```console
 $ duckdb <<'SQL' | overture-schema validate --type division --show-field id -
@@ -341,7 +344,7 @@ SQL
    country          <missing> ← Input should be a valid string
 ```
 
-No `jq` this time: each line is a flat row carrying a GeoJSON geometry, and `Feature` reads flat rows directly. The failure is real data: a locality at the South Pole, with no country.
+DuckDB writes each row flat, with only the geometry as GeoJSON. `Feature` reads flat rows directly, so no `jq`. The failure is real data: a locality at the South Pole, with no country.
 
 <!-- _class: dense -->
 
