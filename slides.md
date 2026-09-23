@@ -139,6 +139,7 @@ A Python library: describe data as **classes with type hints**, and it checks in
 ```python
 class Rating(BaseModel):
     stars: Annotated[int, Field(ge=1, le=5)]
+    road_type: str | None = None
 
 Rating.model_validate_json('{"stars": 7}')
 ```
@@ -153,28 +154,36 @@ stars
 
 ## How they relate
 
-Pydantic **generates** JSON Schema from a model:
+Pydantic **generates** JSON Schema from a model. Overture's schema system wraps that:
 
 ```python
-Rating.model_json_schema()
+from overture.schema.system.json_schema import json_schema
+json_schema(Rating)
 ```
 
 ```json
-{"properties": {"stars": {"type": "integer", "minimum": 1, "maximum": 5}},
- "required": ["stars"], "type": "object", "title": "Rating"}
+{"$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object", "title": "Rating", "required": ["stars"],
+ "properties": {"stars": {"type": "integer", "minimum": 1, "maximum": 5},
+                "road_type": {"type": "string"}}}
 ```
 
-Both are models. Overture writes its schema in Pydantic for what Python adds:
+Both are models. Overture writes its schema in Pydantic because being Python makes these possible:
 
-- **Tooling**: editor support, generated Markdown docs, PySpark validation
+- **Tooling**: editor support, and generators for Markdown docs and PySpark validation
 - **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model read a GeoJSON feature *and* a flat Parquet row
+
+<!-- _class: dense -->
 
 <!--
 Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema
 was hard to write correctly and verify, had little IDE support, no refactoring, generic tools
 couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema
 (schema/ in the repo) is deprecated, scheduled for removal December 2026.
-JSON output above is trimmed from real model_json_schema() output (title keys dropped).
+JSON output above is real json_schema(Rating) output, reordered, property title keys dropped.
+The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an
+optional field becomes {"type": "string"} (may be omitted) instead of
+anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it.
 Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and
 model_validate(flat row, geometry as WKB bytes) produce equal objects.
 -->
@@ -192,8 +201,8 @@ model_validate(flat row, geometry as WKB bytes) produce equal objects.
 The model is the **source of truth**. Everything else is generated from it.
 
 ```text
-                    ┌──▶  Markdown reference docs
-                    ├──▶  JSON Schema
+                    ┌──▶  JSON Schema
+                    ├──▶  Markdown reference docs
    models.py  ──────┼──▶  Validation (Python, CLI)
                     ├──▶  PySpark checks for Parquet at scale
                     └──▶  STAC table:columns  (coming)
@@ -284,6 +293,33 @@ $ overture-schema validate bad-depth.yaml
 ```
 
 The same rule, written once, checked everywhere.
+
+---
+
+## Validating GeoParquet
+
+`overture-schema validate` reads GeoJSON. [`gpq`](https://github.com/planetlabs/gpq) converts GeoParquet to it:
+
+```console
+$ gpq convert bathymetry.parquet --to geojson \
+  | jq '.features |= map(.id = .properties.id
+        | .bbox = (.properties.bbox | [.xmin, .ymin, .xmax, .ymax])
+        | del(.properties.id, .properties.bbox))' \
+  | overture-schema validate --type bathymetry -
+✓ Successfully validated <stdin>
+```
+
+`gpq` puts every column under `properties`, `id` and `bbox` included. GeoJSON keeps those two at the top level, so `jq` moves them: the nested vs tabular gap again.
+
+<!--
+Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with
+DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/tap/gpq).
+Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may
+only appear at the top level...)". Negative control: setting one feature's depth to -1 in the
+stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1.
+Without --type, validate warns the data matches multiple types. For data at scale, use the
+PySpark checks instead.
+-->
 
 ---
 
@@ -389,8 +425,12 @@ Only someone parsing through the Pydantic models ever saw the default.
 | `int8` `int16` `int32` `int64` | `float32` `float64` |
 | `uint8` `uint16` `uint32` | |
 
-Sized types map directly to Parquet, Arrow and Spark column types. JSON only has integers and numbers, so JSON Schema keeps an integer's size as `minimum`/`maximum` bounds and a float's not at all. When unsure, use `int32` and `float64`.
+Sized types map directly to column types in Parquet, Arrow, Spark and databases like PostgreSQL. JSON only has integers and numbers, so JSON Schema keeps an integer's size as `minimum`/`maximum` bounds and a float's not at all. When unsure, use `int32` and `float64`.
 
+
+<!--
+PostgreSQL has no unsigned integers: uint8/uint16 fit smallint/integer, uint32 needs bigint.
+-->
 ---
 
 ## Types: geometry
@@ -398,7 +438,7 @@ Sized types map directly to Parquet, Arrow and Spark column types. JSON only has
 ```python
 geometry: Annotated[
     Geometry,
-    GeometryTypeConstraint(GeometryType.POINT),
+    GeometryTypeConstraint(GeometryType.POLYGON, GeometryType.MULTI_POLYGON),
 ]
 ```
 
@@ -406,7 +446,7 @@ geometry: Annotated[
 - In Python, you can work with it as a Shapely geometry
 - Restrict the allowed shapes: `POINT`, `LINE_STRING`, `POLYGON`,
   `MULTI_POINT`, `MULTI_LINE_STRING`, `MULTI_POLYGON`, `GEOMETRY_COLLECTION`
-- Docs say *Allowed geometry types: Point*; validation rejects anything else
+- List one type or several; docs say *Allowed geometry types: MultiPolygon, Polygon*, and validation rejects anything else
 
 ---
 
