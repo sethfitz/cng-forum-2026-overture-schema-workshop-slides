@@ -9,7 +9,7 @@ description: Model your own data with the Overture schema framework — CNG Foru
 <!-- _class: title -->
 <!-- _paginate: false -->
 
-# Model your data with Overture's schema
+# Model your data with Overture's schema system
 
 Overture Schema Workshop · CNG Forum 2026 · Snowbird
 
