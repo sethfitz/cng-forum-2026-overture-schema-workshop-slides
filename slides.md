@@ -325,7 +325,12 @@ stream reports "depth -1 <- Input should be greater than or equal to 0" at featu
 Without --type, validate warns the data matches multiple types.
 Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only
 type/properties/geometry. It can't know which column is the id (GeoParquet has no id
-convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare. For data at scale, use the
+convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare
+(checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own
+example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox
+column under properties. The 3-row extract above is GeoParquet 1.0 (DuckDB rewrote it), so it
+carries no covering either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews;
+last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the
 PySpark checks instead.
 -->
 
