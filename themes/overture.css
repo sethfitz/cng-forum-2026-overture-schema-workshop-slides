@@ -73,3 +73,7 @@ section.dense pre {
 .muted {
   color: var(--muted);
 }
+
+section.dense table {
+  font-size: 0.8em;
+}

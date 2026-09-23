@@ -74,46 +74,55 @@ deprecated, removal December 2026).
 
 JSON Schema describes and validates **JSON**, so JSON is the natural way to write the data down. For geospatial features, that means **GeoJSON**.
 
-<div class="cols">
-<div>
-
-**GeoJSON**: each feature has its own keys
-
 ```json
-{"type": "Feature", "id": "a",
- "geometry": {…},
- "properties": {"stars": 4}}
-
-{"type": "Feature", "id": "b",
- "geometry": {…},
- "properties": {"stars": 2, "lanes": 4,
-                "surface": "asphalt"}}
+{"type": "Feature",
+ "id": "rsr-0001",
+ "geometry": {"type": "LineString", "coordinates": [[-122.68, 45.52], [-122.67, 45.53]]},
+ "properties": {"stars": 4,
+                "survey": {"assessor": "iRAP", "surveyed_on": "2026-05-01"}}}
 ```
 
-</div>
-<div>
+- The envelope holds `id`, `bbox` and `geometry`
+- Your fields go in `properties`, and they can nest, if your tools support it
+- Geometry is written as coordinates
 
-**GeoParquet, Shapefile**: one set of columns
+---
+
+## Nested vs tabular
+
+| | GeoJSON | GeoParquet | CSV | Shapefile |
+|---|---|---|---|---|
+| Fields | under `properties` | columns | columns | columns |
+| Geometry | coordinates | WKB or GeoArrow | WKT | binary shapes |
+| Nested objects | yes | structs | JSON text | JSON text |
+| Keys per feature | its own | one set of columns | one set | one set |
+
+When features differ, intentionally or by accident, every key that appears anywhere becomes a column, and rows get **wide and mostly null**:
 
 ```text
-id  geometry  stars  lanes  surface
-a   <WKB>     4      null   null
-b   <WKB>     2      4      asphalt
+id   stars  lanes  surface
+a    4      null   null
+b    2      4      asphalt
 ```
 
-</div>
-</div>
-
-Every key that appears anywhere becomes a column, so rows get **wide and mostly null**. Fields also leave `properties`, and geometry turns from coordinates into binary.
+<!-- _class: dense -->
 
 <!--
 GeoJSON features in one FeatureCollection may differ in which keys they carry, not just in
-null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these are
-the seams: differing keys, the properties envelope, and the geometry encoding.
+null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these rows are
+the seams. Modelling as if every feature can carry anything produces very wide tables.
+Measured with GDAL 3.13.3 (ogr2ogr): a nested GeoJSON object reads as String(JSON). To
+Shapefile it becomes JSON text in a String(80) column (dBase strings cap at 254 chars).
+String arrays fail on Shapefile unless -mapFieldType StringList=String, then write as
+"(2:x,y)". GeoJSON -> Parquet via ogr2ogr ALSO writes the object as a JSON string, not a
+struct: the format has structs, the conversion doesn't infer them. The model knows.
+CSV via ogr2ogr: geometry only with -lco GEOMETRY=AS_WKT (the default drops it); objects and
+arrays both become JSON text.
+GeoParquet 1.1 added native encodings "based on GeoArrow" (point, linestring, polygon, multi*);
+WKB stays "the preferred option for maximum portability" (geoparquet.org/releases/v1.1.0).
 Feature handles the envelope (fields in and out of properties), Geometry the encoding
 (GeoJSON coordinates or WKB), and BBox GeoJSON's [xmin, ymin, xmax, ymax] array or
 Parquet's xmin/ymin/xmax/ymax struct.
-Modelling as if every feature can carry anything produces very wide tables.
 Overture ships Parquet; GeoJSON is for single features, extracts and examples.
 In Pydantic terms: GeoJSON is JSON mode (model_validate_json), the flat row is Python mode
 (model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
@@ -124,6 +133,8 @@ In Pydantic terms: GeoJSON is JSON mode (model_validate_json), the flat row is P
 ## Pydantic
 
 A Python library: describe data as **classes with type hints**, and it checks input against them.
+
+<!-- TODO(screenshot): VS Code hover on a model field, captured in the workshop Codespace -->
 
 ```python
 class Rating(BaseModel):
