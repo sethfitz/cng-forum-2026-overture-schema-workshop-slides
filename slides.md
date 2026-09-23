@@ -59,7 +59,7 @@ A JSON document that describes what **other** JSON documents must look like.
 - **Descriptions** on every field
 - Language-neutral: validators exist for most programming languages
 
-If your data already has a JSON Schema, it is a good starting point for a model.
+If your data already has a JSON Schema, it already has a model.
 
 <!-- _class: dense -->
 
@@ -150,8 +150,10 @@ Rating.model_json_schema()
  "required": ["stars"], "type": "object", "title": "Rating"}
 ```
 
-Overture now **writes** the schema in Pydantic and generates JSON Schema from it.
-Python brings an editor that understands the code, reusable named types, and tools that generate docs, JSON Schema, PySpark checks and more from one source.
+Both are models. Overture writes its schema in Pydantic for what Python adds:
+
+- **Tooling**: editor support, generated Markdown docs, PySpark validation
+- **Nested and tabular**: one model reads a GeoJSON feature *and* a flat Parquet row
 
 <!--
 Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema
@@ -159,6 +161,8 @@ was hard to write correctly and verify, had little IDE support, no refactoring, 
 couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema
 (schema/ in the repo) is deprecated, scheduled for removal December 2026.
 JSON output above is trimmed from real model_json_schema() output (title keys dropped).
+Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and
+model_validate(flat row, geometry as WKB bytes) produce equal objects.
 -->
 
 ---
