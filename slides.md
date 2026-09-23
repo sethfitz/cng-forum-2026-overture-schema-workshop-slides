@@ -171,7 +171,7 @@ json_schema(Rating)
 Both are models. Overture writes its schema in Pydantic because being Python makes these possible:
 
 - **Tooling**: editor support, and generators for Markdown docs and PySpark validation
-- **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model read a GeoJSON feature *and* a flat Parquet row
+- **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model describe a GeoJSON feature *and* a flat Parquet row
 
 <!-- _class: dense -->
 
@@ -185,7 +185,9 @@ The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect
 optional field becomes {"type": "string"} (may be omitted) instead of
 anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it.
 Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and
-model_validate(flat row, geometry as WKB bytes) produce equal objects.
+model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model
+describes both shapes. The point is the model, not parsing into Python; the modelled shape feeds
+JSON Schema, docs and PySpark checks too.
 -->
 
 ---
