@@ -1,5 +1,5 @@
 # Marp CLI: brew install marp-cli (or npx @marp-team/marp-cli)
-MARP ?= marp
+MARP ?= marp --no-stdin
 
 .PHONY: all html pdf serve clean
 
