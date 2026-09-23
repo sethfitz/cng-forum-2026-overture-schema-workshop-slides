@@ -212,6 +212,8 @@ The model is the **source of truth**. Everything else is generated from it.
 
 Types, **constraints**, and **commentary** live in one place, so they cannot drift apart.
 
+Python is where you **write** the model. The data is **read** elsewhere: DuckDB, Spark, GDAL, QGIS. None of them runs your Python.
+
 ---
 
 ## Richer than a data dictionary
@@ -478,11 +480,17 @@ geometry: Annotated[
 ]
 ```
 
-- Reads GeoJSON, WKB (as in GeoParquet) or WKT; writes GeoJSON to JSON
-- In Python, you can work with it as a Shapely geometry
+- The field declares a geometry, not an encoding: GeoJSON coordinates, WKB (as in GeoParquet) and WKT all fit it
 - Restrict the allowed shapes: `POINT`, `LINE_STRING`, `POLYGON`,
   `MULTI_POINT`, `MULTI_LINE_STRING`, `MULTI_POLYGON`, `GEOMETRY_COLLECTION`
 - List one type or several; docs say *Allowed geometry types: MultiPolygon, Polygon*, and validation rejects anything else
+
+<!--
+Checked on overture-schema 2.0.0: a Geometry field accepts a GeoJSON dict, WKB bytes and a WKT
+string alike, and rejects malformed input in each form. In Python the value is a Shapely
+geometry, and it serializes back to GeoJSON in JSON mode.
+Useful for someone scripting against the model; not the point of declaring the field.
+-->
 
 ---
 
