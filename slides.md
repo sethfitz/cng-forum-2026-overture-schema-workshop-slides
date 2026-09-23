@@ -746,7 +746,7 @@ experimental models.
 ## Manual creation
 
 1. Edit `my-schema/src/my_schema/models.py` in the Codespaces editor
-2. Registered a new model? Run `uv sync` from the repository root
+2. Registered a new model? Run `uv sync --all-packages`
 3. Check the tools can see it, then validate some data:
 
 ```console
@@ -764,9 +764,11 @@ $ overture-schema validate my-schema/examples/bad.json
 <!--
 No venv activation shown: the Codespace puts .venv/bin on PATH (remoteEnv in
 devcontainer.json, on the devcontainer-py312 branch / workshop#60, not on main yet).
-From the root, not my-schema/: measured 2026-09-23, `uv sync` inside my-schema/ syncs only that
-member and REMOVES the workshop's other packages (jupyter, duckdb, ...) from the shared .venv.
-A root `uv sync` registers a new entry point and keeps everything.
+Why --all-packages: my-schema is a uv workspace member sharing the root .venv. Measured
+2026-09-23: a bare `uv sync` inside my-schema/ syncs only that member and REMOVES the
+workshop's other packages (jupyter, duckdb, ...). `uv sync --all-packages` keeps them and
+registers a new entry point from any directory (same as schema-workspace's `make install`;
+the workshop has no extras, so --all-extras adds nothing).
 -->
 
 ---
