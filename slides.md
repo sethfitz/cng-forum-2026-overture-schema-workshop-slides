@@ -462,12 +462,12 @@ Only someone parsing through the Pydantic models ever saw the default.
 
 ## Field names: aliases
 
-Python names fields in `snake_case`, and some names are off limits. The data keeps its own. An **alias** connects the two.
+`class` is a Python **keyword**, so a field can't be named `class`. Overture names it `class_`. Other names just break Python's `snake_case` convention. An **alias** keeps the data's name.
 
 ```python
 class Place(Feature):
+    class_: Annotated[PlaceClass, Field(alias="class")]      # class is a keyword
     lsad: Annotated[str | None, Field(alias="LSAD")] = None  # the column is LSAD
-    class_: Annotated[PlaceClass, Field(alias="class")]      # class is a Python keyword
 ```
 
 - Validation, JSON Schema, docs and PySpark all use the **alias**, the name in the data
