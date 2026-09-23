@@ -447,6 +447,7 @@ A default lives in the Python model. **It does not travel with the data.**
 
 - **Pydantic** fills it in when parsing: a value the input never had
 - **Parquet** has no defaults: absent is `null`
+- **Databases** can set a column `DEFAULT`: yet another source of truth, free to disagree with the model
 - **SQL** over the data: `WHERE level = 0` misses every row that relied on the default
 
 If absence means something, say so in the field's **description**. If a value belongs in the data, the publisher writes it.
