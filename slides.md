@@ -110,6 +110,9 @@ Every key that appears anywhere becomes a column, so rows get **wide and mostly 
 GeoJSON features in one FeatureCollection may differ in which keys they carry, not just in
 null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these are
 the seams: differing keys, the properties envelope, and the geometry encoding.
+Feature handles the envelope (fields in and out of properties), Geometry the encoding
+(GeoJSON coordinates or WKB), and BBox GeoJSON's [xmin, ymin, xmax, ymax] array or
+Parquet's xmin/ymin/xmax/ymax struct.
 Modelling as if every feature can carry anything produces very wide tables.
 Overture ships Parquet; GeoJSON is for single features, extracts and examples.
 In Pydantic terms: GeoJSON is JSON mode (model_validate_json), the flat row is Python mode
@@ -153,7 +156,7 @@ Rating.model_json_schema()
 Both are models. Overture writes its schema in Pydantic for what Python adds:
 
 - **Tooling**: editor support, generated Markdown docs, PySpark validation
-- **Nested and tabular**: one model reads a GeoJSON feature *and* a flat Parquet row
+- **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model read a GeoJSON feature *and* a flat Parquet row
 
 <!--
 Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema
@@ -311,7 +314,7 @@ We'll take this apart piece by piece over the next slides.
 
 | Class | Use it for | You get |
 |---|---|---|
-| `Feature` | **your features** | `geometry`, optional `id` and `bbox`, GeoJSON in and out |
+| `Feature` | **your features** | `geometry`, optional `id` and `bbox`; reads GeoJSON features and flat rows |
 | `BaseModel` (Pydantic) | nested structs | nothing extra |
 | `OvertureFeature` | Overture's own themes | adds required `id`, `theme`, `type`, `version`; optional `sources` |
 
