@@ -154,7 +154,7 @@ stars
 
 ## How they relate
 
-Pydantic **generates** JSON Schema from a model. Overture's schema system wraps that:
+Pydantic **generates** JSON Schema from a model. Overture's wrapper adds the draft version, and lets an optional field be left out rather than set to `null`:
 
 ```python
 from overture.schema.system.json_schema import json_schema
@@ -168,7 +168,7 @@ json_schema(Rating)
                 "road_type": {"type": "string"}}}
 ```
 
-Both are models. Overture writes its schema in Pydantic because being Python makes these possible:
+Both are models. Overture uses Pydantic because being Python makes these possible:
 
 - **Tooling**: editor support, and generators for Markdown docs and PySpark validation
 - **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model describe a GeoJSON feature *and* a flat Parquet row
@@ -184,6 +184,7 @@ JSON output above is real json_schema(Rating) output, reordered, property title 
 The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an
 optional field becomes {"type": "string"} (may be omitted) instead of
 anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it.
+Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models.
 Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and
 model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model
 describes both shapes. The point is the model, not parsing into Python; the modelled shape feeds
@@ -399,7 +400,7 @@ We'll take this apart piece by piece over the next slides.
 
 | Class | Use it for | You get |
 |---|---|---|
-| `Feature` | **your features** | `geometry`, optional `id` and `bbox`; reads GeoJSON features and flat rows |
+| `Feature` | **your features** | `geometry`, optional `id` and `bbox`; describes GeoJSON features and flat rows |
 | `BaseModel` (Pydantic) | nested structs | nothing extra |
 | `OvertureFeature` | Overture's own themes | adds required `id`, `theme`, `type`, `version`; optional `sources` |
 
