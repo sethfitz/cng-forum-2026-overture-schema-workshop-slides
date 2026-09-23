@@ -546,17 +546,19 @@ CountryCodeAlpha2 = NewType("CountryCodeAlpha2", Annotated[
 ```
 
 - **Reuse**: every field that uses it inherits the description and the checks, and the docs give it its own page
-- **Type safety**: a type checker (mypy) won't let a plain `str` stand in for a `CountryCodeAlpha2`
+- **Type safety**: a type checker (ty, mypy) won't let a plain `str` stand in for a `CountryCodeAlpha2`
 
 <!--
 Checked on overture-schema 2.0.0, a function taking CountryCodeAlpha2 called with "US":
+ty 0.0.81 (what the workshop Codespace runs): Expected `CountryCodeAlpha2`, found
+`Literal["US"]`; the model field reveals as CountryCodeAlpha2, and Place(country="US") passes.
 mypy: incompatible type "str"; expected "CountryCodeAlpha2". It also flags
 Place(country="US"), since mypy (without the Pydantic plugin) sees the NewType, not the string
 Pydantic accepts. Runtime: Place(country="USA") is rejected.
 pyright, which is what Pylance in VS Code runs, rejects the type itself: "Variable not allowed
 in type expression", and the field's type shows as Unknown. NewType's second argument is meant
 to be a class, not Annotated[...]; the library carries "# type: ignore [type-arg]" for mypy.
-So in the Codespace, hover and type checking won't show the domain type.
+That is why the Codespace installs ty rather than relying on Pylance.
 -->
 
 ---
