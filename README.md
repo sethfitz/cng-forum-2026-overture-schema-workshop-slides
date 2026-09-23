@@ -14,7 +14,9 @@ make pdf                 # dist/slides.pdf
 `slides.md` is the deck; `themes/overture.css` is its theme. `marp.config.mjs`
 swaps Marp's highlight.js for Shiki, in VS Code's light theme, and colours Python
 type and call names the way VS Code's language server does. Speaker notes are
-HTML comments on each slide and appear in Marp's presenter view.
+HTML comments on each slide and appear in Marp's presenter view. Write each
+paragraph of a note on one line, with a blank line between paragraphs: the
+presenter view keeps every line break, so hard-wrapped notes wrap twice.
 
 Every code sample and command output in the deck was run against the
 `overture-schema` 2.0.0 packages on PyPI (Python 3.12).
