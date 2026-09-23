@@ -777,6 +777,42 @@ The feature, system:, and overture: tag namespaces are reserved; a provider that
 
 ---
 
+## Advanced: your own tag vocabulary
+
+A large collection needs more than "mine". Namespace your tags: `ns:flag` for a flag, `ns:key=value` for a dimension.
+
+```python
+def my_schema_provider(types, key, tags):
+    if key.entry_point.startswith("my_schema:"):
+        tags.add("my_schema")
+        tags.add(f"my_schema:mode={MODE[key.name]}")  # road, rail, ...
+        if key.name in DRAFTS:
+            tags.add("my_schema:draft")
+    return tags
+```
+
+```console
+$ overture-schema list-types --group-by my_schema:mode
+$ overture-schema validate --tag my_schema:mode=rail data.json
+$ overture-codegen generate --format markdown --tag my_schema --exclude my_schema:draft
+```
+
+`--tag` adds, `--filter` narrows, and `--exclude` removes. `overture:` and `system:` are reserved.
+
+<!-- _class: dense -->
+
+<!--
+Measured on 2.0.0 with the my-schema template and three models tagged my_schema:mode=road or =rail, one also my_schema:draft: --group-by my_schema:mode lists them under my_schema:mode=rail (2) and my_schema:mode=road (1); --tag my_schema:mode=rail selects the two rail models; --tag my_schema --filter my_schema:mode=road selects one; --exclude my_schema:draft drops the draft from list-types and from codegen's Markdown output. validate follows the selection: the template's bad.json fails under --tag my_schema:mode=road and passes under =rail, whose test models had no rules to break.
+
+A provider that sets overture:theme=roads gets "attempted to set tag 'overture:theme=roads' in reserved namespace 'overture'" and the tag is dropped. Nothing reserves your own namespace; the colon is a convention there, not enforcement.
+
+Codegen groups its output directories only by overture:theme today, so a custom dimension selects and groups in the CLI but does not shape the generated docs tree.
+
+Tag grammar: [namespace:]predicate[=value], lower-case, one colon and one = at most (overture.schema.system.discovery.tag).
+-->
+
+---
+
 ## Manual creation
 
 1. Edit `my-schema/src/my_schema/models.py` in the Codespaces editor
