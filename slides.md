@@ -17,10 +17,11 @@ Overture Schema Workshop · CNG Forum 2026 · Snowbird
 
 ## Today
 
-1. **Why** write a schema as code
-2. **How**: a model, its fields, its constraints
-3. Turn it into a **package**, then into **docs, validation and catalog columns**
-4. Faster starts: **tools** and **agents**
+1. **Background**: JSON Schema and Pydantic
+2. **Why** write a schema as code
+3. **How**: a model, its fields, its constraints
+4. Turn it into a **package**, then into **docs, validation and catalog columns**
+5. Faster starts: **tools** and **agents**
 
 ```console
 pip install overture-schema overture-schema-codegen   # Python 3.10+
@@ -29,6 +30,130 @@ pip install overture-schema overture-schema-codegen   # Python 3.10+
 <!--
 Codespaces run Python 3.12. Everything in this deck was run against the 2.0.0
 packages on PyPI.
+-->
+
+---
+
+<!-- _class: divider -->
+
+# Background
+
+---
+
+## JSON Schema
+
+A JSON document that describes what **other** JSON documents must look like.
+
+```json
+{"type": "object",
+ "properties": {
+   "stars": {"type": "integer", "minimum": 1, "maximum": 5,
+             "description": "Star rating from 1 (least safe) to 5 (safest)."},
+   "road_type": {"enum": ["motorway", "arterial", "local"],
+                 "description": "Kind of road that was rated."}},
+ "required": ["stars"]}
+```
+
+- **Rich types**: nested objects, arrays, enums, reusable definitions
+- **Constraints**: required fields, bounds, patterns
+- **Descriptions** on every field
+- Language-neutral: validators exist for most programming languages
+
+If your data already has a JSON Schema, it is a good starting point for a model.
+
+<!-- _class: dense -->
+
+<!--
+Overture's own schema was first written this way, by hand, in YAML (schema/ in the repo;
+deprecated, removal December 2026).
+-->
+
+---
+
+## Why JSON? GeoJSON
+
+A geospatial feature written as one JSON document is **GeoJSON**: nearly every GIS tool reads it, and it repeats every field name on every feature.
+
+<div class="cols">
+<div>
+
+**GeoJSON**: a nested envelope
+
+```json
+{"type": "Feature",
+ "id": "rsr-0001",
+ "geometry": {"type": "LineString",
+              "coordinates": [[-122.68, 45.52], …]},
+ "properties": {"stars": 4,
+                "road_type": "arterial"}}
+```
+
+</div>
+<div>
+
+**GeoParquet, Shapefile**: flat columns
+
+```text
+id        geometry   stars  road_type
+rsr-0001  <WKB>      4      arterial
+```
+
+</div>
+</div>
+
+Same feature, two shapes: fields sit under `properties` or become columns, and geometry is coordinates or binary. The schema describes the **feature**, not one format.
+
+<!--
+We tend to assume GeoJSON translates one-to-one into Shapefile or GeoParquet. It mostly
+does, with exactly these two seams: the properties envelope and the geometry encoding.
+Overture ships Parquet; GeoJSON is for single features, extracts and examples.
+In Pydantic terms: GeoJSON is JSON mode (model_validate_json), the flat row is Python mode
+(model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
+-->
+
+---
+
+## Pydantic
+
+A Python library: describe data as **classes with type hints**, and it checks input against them.
+
+```python
+class Rating(BaseModel):
+    stars: Annotated[int, Field(ge=1, le=5)]
+
+Rating.model_validate_json('{"stars": 7}')
+```
+
+```text
+1 validation error for Rating
+stars
+  Input should be less than or equal to 5
+```
+
+---
+
+## How they relate
+
+Pydantic **generates** JSON Schema from a model:
+
+```python
+Rating.model_json_schema()
+```
+
+```json
+{"properties": {"stars": {"type": "integer", "minimum": 1, "maximum": 5}},
+ "required": ["stars"], "type": "object", "title": "Rating"}
+```
+
+Overture now **writes** the schema in Pydantic and generates JSON Schema from it.
+Python brings an editor that understands the code, reusable named types, and tools that generate docs, JSON Schema, PySpark checks and more from one source.
+
+<!--
+Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema
+was hard to write correctly and verify, had little IDE support, no refactoring, generic tools
+couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema
+(schema/ in the repo) is deprecated, scheduled for removal December 2026.
+JSON output above is trimmed from real model_json_schema() output (title keys dropped).
 -->
 
 ---
@@ -52,6 +177,31 @@ The model is the **source of truth**. Everything else is generated from it.
 ```
 
 Types, **constraints**, and **commentary** live in one place, so they cannot drift apart.
+
+---
+
+## Richer than a data dictionary
+
+A data dictionary types a column with its **storage format**:
+
+| Column | Type | Description |
+|---|---|---|
+| `stars` | integer | Star rating |
+| `road_type` | string | Road type code |
+
+A model gives it a **type of its own**, with the range, the meaning and every legal value attached:
+
+```python
+StarRating = NewType("StarRating", Annotated[uint8, Field(
+    ge=1, le=5, description="Star rating from 1 (least safe) to 5 (safest).")])
+
+class RoadType(str, DocumentedEnum):
+    """Kind of road that was rated."""
+    MOTORWAY = ("motorway", "Divided highway with controlled access.")
+    LOCAL = ("local", "Street serving the properties along it.")
+```
+
+<!-- _class: dense -->
 
 ---
 
