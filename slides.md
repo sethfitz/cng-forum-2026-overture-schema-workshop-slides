@@ -156,7 +156,7 @@ The workshop Codespace runs ty. Pylance (pyright) mis-reads Overture's named typ
 
 ## Pydantic
 
-A Python library: describe data as **classes with type hints**, and it checks input against them.
+A Python library: describe data as **classes with type hints**, and check input against them.
 
 <!-- TODO(screenshot): VS Code hover on a model field, captured in the workshop Codespace -->
 
@@ -708,7 +708,7 @@ Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySp
 | `@require_if(...)` | *`speed_limit_kph` is required when `road_type` = `motorway`* | `if` / `then` | `check_require_if` |
 | `Field(ge=1, le=5)` | `≥ 1`, `≤ 5` | `minimum`, `maximum` | `check_bounds` |
 
-Validation enforces all three. Only the rules written as data reach the docs, JSON Schema and PySpark.
+Validation enforces all three. Only rules written as data reach the docs, JSON Schema and PySpark.
 
 <!--
 PySpark drops the function silently: generation succeeds and the generated checks pass rows the Python model rejects.
