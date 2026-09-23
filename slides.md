@@ -158,7 +158,7 @@ The workshop Codespace runs ty. Pylance (pyright) mis-reads Overture's named typ
 
 A Python library: describe data as **classes with type hints**, and check input against them.
 
-<!-- TODO(screenshot): VS Code hover on a model field, captured in the workshop Codespace -->
+![bg right:50% contain](img/vscode-hover.png)
 
 ```python
 class Rating(BaseModel):
