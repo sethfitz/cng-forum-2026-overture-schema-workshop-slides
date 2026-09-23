@@ -828,18 +828,24 @@ The tool finds the values. **What they mean is your job.**
 
 ---
 
-## Agent-based: have Claude write it
+## Agent-based: have Claude write the generator
 
-Point a coding agent at the source of truth and ask for a model.
+Don't ask an agent for the models. Ask it for **code that generates the models** from the source of truth.
 
-- The source: a spec, a data dictionary, a JSON Schema, a code-list PDF
-- The rules: *use the sized number types; subclass the provided constraints; no validator functions*
-- Check its work the way you'd check your own: validate real rows, read the generated docs
+- **The source**: a spec, a data dictionary, a JSON Schema, a code-list PDF, pinned to a version
+- **Checkable**: re-run the generator and diff; every model traces back to the source
+- **Repeatable**: when the source changes, re-run instead of re-transcribing
+- **The rules**: sized number types, provided constraints, no validator functions
 
-**Example:** GATIS, the US active-transportation spec, is published as a spreadsheet export. Its models were generated from a pinned snapshot of that export, and modelling it turned up defects in the spec itself.
+**Example:** GATIS, the US active-transportation spec, is published as a spreadsheet export. Its models are generated from a pinned snapshot, a second script diffs the generated JSON Schema against upstream's, and the process turned up defects in the spec itself.
 
 <!--
-~/src/sethfitz/gatis-schema. The upstream JSON Schema only permits the literal
+Seth, 2026-09-22: when he first built out the Overture models he had an agent write the models
+directly (with Sonnet 3.7, he thinks), and they were subject to lots of problems. Treated as code
+generation, where code generates other code, the result is checkable and traceable to a source
+of truth.
+GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned spec snapshot),
+scripts/compare-json-schema. The upstream JSON Schema only permits the literal
 "(Same as Edge Types)" for edge_type: a note to a human, carried through every export.
 -->
 
