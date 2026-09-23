@@ -70,42 +70,47 @@ deprecated, removal December 2026).
 
 ---
 
-## Why JSON? GeoJSON
+## From JSON Schema to GeoJSON
 
-A geospatial feature written as one JSON document is **GeoJSON**: nearly every GIS tool reads it, and it repeats every field name on every feature.
+JSON Schema describes and validates **JSON**, so JSON is the natural way to write the data down. For geospatial features, that means **GeoJSON**.
 
 <div class="cols">
 <div>
 
-**GeoJSON**: a nested envelope
+**GeoJSON**: each feature has its own keys
 
 ```json
-{"type": "Feature",
- "id": "rsr-0001",
- "geometry": {"type": "LineString",
-              "coordinates": [[-122.68, 45.52], …]},
- "properties": {"stars": 4,
-                "road_type": "arterial"}}
+{"type": "Feature", "id": "a",
+ "geometry": {…},
+ "properties": {"stars": 4}}
+
+{"type": "Feature", "id": "b",
+ "geometry": {…},
+ "properties": {"stars": 2, "lanes": 4,
+                "surface": "asphalt"}}
 ```
 
 </div>
 <div>
 
-**GeoParquet, Shapefile**: flat columns
+**GeoParquet, Shapefile**: one set of columns
 
 ```text
-id        geometry   stars  road_type
-rsr-0001  <WKB>      4      arterial
+id  geometry  stars  lanes  surface
+a   <WKB>     4      null   null
+b   <WKB>     2      4      asphalt
 ```
 
 </div>
 </div>
 
-Same feature, two shapes: fields sit under `properties` or become columns, and geometry is coordinates or binary. The schema describes the **feature**, not one format.
+Every key that appears anywhere becomes a column, so rows get **wide and mostly null**. Fields also leave `properties`, and geometry turns from coordinates into binary.
 
 <!--
-We tend to assume GeoJSON translates one-to-one into Shapefile or GeoParquet. It mostly
-does, with exactly these two seams: the properties envelope and the geometry encoding.
+GeoJSON features in one FeatureCollection may differ in which keys they carry, not just in
+null values. We assume GeoJSON translates cleanly into Shapefile or GeoParquet; these are
+the seams: differing keys, the properties envelope, and the geometry encoding.
+Modelling as if every feature can carry anything produces very wide tables.
 Overture ships Parquet; GeoJSON is for single features, extracts and examples.
 In Pydantic terms: GeoJSON is JSON mode (model_validate_json), the flat row is Python mode
 (model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
