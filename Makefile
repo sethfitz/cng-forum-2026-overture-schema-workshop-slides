@@ -8,13 +8,17 @@ all: html pdf
 html: dist/index.html
 pdf: dist/slides.pdf
 
-dist/index.html: slides.md themes/*.css
+node_modules: package.json package-lock.json
+	npm ci
+	@touch $@
+
+dist/index.html: slides.md themes/*.css marp.config.mjs node_modules
 	$(MARP) slides.md -o $@
 
-dist/slides.pdf: slides.md themes/*.css
+dist/slides.pdf: slides.md themes/*.css marp.config.mjs node_modules
 	$(MARP) slides.md --pdf -o $@
 
-serve:
+serve: node_modules
 	$(MARP) -s .
 
 clean:

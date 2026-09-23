@@ -77,3 +77,8 @@ section.dense pre {
 section.dense table {
   font-size: 0.8em;
 }
+
+/* Shiki (marp.config.mjs) writes its theme's background inline; keep ours. */
+pre.shiki {
+  background: var(--code-bg) !important;
+}

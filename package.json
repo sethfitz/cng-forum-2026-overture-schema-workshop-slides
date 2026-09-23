@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Build dependencies for the Marp deck: Shiki for syntax highlighting",
+  "dependencies": {
+    "shiki": "^4.4.3"
+  }
+}
