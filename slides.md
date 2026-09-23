@@ -513,7 +513,9 @@ class Survey(BaseModel):
     surveyed_on: date | None = None
 
 class RoadSafetyRating(Feature):
-    survey: Survey | None = None
+    survey: Annotated[
+        Survey | None, Field(description="The survey this rating came from.")
+    ] = None
 ```
 
 ---
@@ -524,18 +526,21 @@ The feature's page flattens the struct into dotted rows:
 
 | Name | Type | Description |
 |---|---|---|
-| `geometry` | geometry | The rated stretch of road. *Allowed geometry types: LineString* |
-| `stars` | `StarRating` | Star rating from 1 (least safe) to 5 (safest). |
-| `survey` | `Survey` (optional) | |
+| `survey` | `Survey` (optional) | The survey this rating came from. |
 | `survey.assessor` | `string` | |
 | `survey.surveyed_on` | `date` (optional) | |
 
-`Survey` also gets its own page, with its docstring and fields.
+`survey`'s description comes from its **field**; `Survey`'s docstring goes on its own page.
 
 <!--
 Real output: overture-codegen generate --format markdown --tag my_schema, from the
-my-schema template (id and bbox rows omitted). Constraints on a struct's fields show on
+my-schema template, survey rows only (geometry, stars and the rest omitted). Constraints on a struct's fields show on
 the struct's own page, not on the flattened rows.
+Write a description on every field: it says what the field is FOR, which the type's docstring
+can't (origin: Address and destination: Address share a docstring). Today a field with no
+description renders an empty cell, even when its type has a docstring (2.0.0, checked for
+structs and enums). Codegen will probably fall back to the type's docstring in future
+(tracked in the schema workspace); a field's own description will still win.
 -->
 
 ---
@@ -600,11 +605,21 @@ The schema-bootstrap slides later show the extract problem on real data: TIGER's
 
 ## Pre-built constraints
 
-**On a field:** `Field(ge=, le=, min_length=, max_length=)`, plus:
+**On a field:** `Field(ge=, le=, min_length=, max_length=)`, plus, among others:
 
-`CountryCodeAlpha2Constraint` · `RegionCodeConstraint` · `LanguageTagConstraint`
-`HexColorConstraint` · `PhoneNumberConstraint` · `WikidataIdConstraint`
-`SnakeCaseConstraint` · `StrippedConstraint` · `UniqueItemsConstraint` · …
+<div class="list-cols">
+
+- `CountryCodeAlpha2Constraint`
+- `RegionCodeConstraint`
+- `LanguageTagConstraint`
+- `HexColorConstraint`
+- `PhoneNumberConstraint`
+- `WikidataIdConstraint`
+- `SnakeCaseConstraint`
+- `StrippedConstraint`
+- `UniqueItemsConstraint`
+
+</div>
 
 **Across fields** (class decorators):
 
@@ -637,7 +652,7 @@ class RoadSafetyRating(Feature):
     ...
 ```
 
-Express rules with the bounds, enums and decorators we provide, or subclass a provided constraint.
+Express rules with the bounds, enums and decorators we provide, or subclass an available constraint.
 
 <!--
 Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySpark

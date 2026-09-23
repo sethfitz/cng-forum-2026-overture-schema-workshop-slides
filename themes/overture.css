@@ -82,3 +82,15 @@ section.dense table {
 pre.shiki {
   background: var(--code-bg) !important;
 }
+
+/* A short list set in columns: wrap it in <div class="list-cols">…</div> */
+.list-cols ul {
+  columns: 3;
+  column-gap: 24px;
+  margin: 0 0 0.6em;
+  font-size: 0.8em;
+}
+
+.list-cols li {
+  break-inside: avoid;
+}

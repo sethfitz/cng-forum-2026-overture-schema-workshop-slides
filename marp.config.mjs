@@ -13,12 +13,13 @@ const PLAIN = '#000000'
 const TYPE = '#267F99' // light-plus entity.name.type
 const CALL = '#795E26' // light-plus entity.name.function
 const ENUM_MEMBER = '#0070C1' // light-plus variable.other.constant
-const SIZED = /^u?int(8|16|32|64)$|^float(32|64)$/
+// Lowercase names that are still types: sized numbers, and datetime's classes.
+const LOWER_TYPES = /^u?int(8|16|32|64)$|^float(32|64)$|^(date|datetime|time|timedelta)$/
 const WORD = /[A-Za-z_][A-Za-z0-9_]*/g
 
 function colourFor(word, before, after) {
   if (/^[A-Z][A-Z0-9_]+$/.test(word)) return before === '.' ? ENUM_MEMBER : PLAIN
-  if (/^[A-Z]/.test(word) || SIZED.test(word)) return TYPE
+  if (/^[A-Z]/.test(word) || LOWER_TYPES.test(word)) return TYPE
   if (after === '(') return CALL
   return PLAIN
 }
