@@ -833,11 +833,10 @@ The tool finds the values. **What they mean is your job.**
 
 ## Agent-based: have Claude write the generator
 
-Don't ask an agent for the models. Ask it for **code that generates the models** from the source of truth.
+An agent that reads a spec and writes the models is **transcribing**, and transcription loses fidelity. Ask it instead for a **script** that reads the source and emits the Pydantic.
 
-- **The source**: a spec, a data dictionary, a JSON Schema, a code-list PDF, pinned to a version
-- **Checkable**: re-run the generator and diff; every model traces back to the source
-- **Repeatable**: when the source changes, re-run instead of re-transcribing
+- **The source**: a spec, a data dictionary, a JSON Schema, or the data files themselves: a snapshot, not a live URL
+- **Checkable**: regenerate and diff against the models you have edited
 - **The rules**: sized number types, provided constraints, no validator functions
 
 **Example:** GATIS, the US active-transportation spec, is published as a spreadsheet export. Its models are generated from a pinned snapshot, a second script diffs the generated JSON Schema against upstream's, and the process turned up defects in the spec itself.
@@ -847,6 +846,14 @@ Seth, 2026-09-22: when he first built out the Overture models he had an agent wr
 directly (with Sonnet 3.7, he thinks), and they were subject to lots of problems. Treated as code
 generation, where code generates other code, the result is checkable and traceable to a source
 of truth.
+Fidelity: a transcribing agent can drop enum values, paraphrase descriptions, or add constraints
+the spec never stated, and nothing flags it. (Illustrative failure modes, not a record of what
+went wrong in Seth's Overture attempt.) A generator copies what is there; when it is wrong, it is
+wrong the same way on every field, so a diff shows it. That answers "but the agent wrote the
+script too."
+The generated models are a seed, not the final word: gatis-schema's bootstrap-models refuses to
+overwrite the hand-edited models, and `--into DIR` writes a fresh bootstrap to diff against them.
+That is what "Checkable" means on the slide.
 GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned spec snapshot),
 scripts/compare-json-schema. The upstream JSON Schema only permits the literal
 "(Same as Edge Types)" for edge_type: a note to a human, carried through every export.
