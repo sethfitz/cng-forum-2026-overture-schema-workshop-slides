@@ -364,7 +364,17 @@ class RoadSafetyRating(Feature):
 <!-- _class: dense -->
 
 <!--
-We'll take this apart piece by piece over the next slides.
+We'll take this apart piece by piece. Where each piece is covered:
+- class RoadSafetyRating(Feature): Pick a base class (next slide)
+- geometry and stars have no default, so both are required: Required or optional?
+- uint8: Types: primitives and numbers
+- Geometry with GeometryTypeConstraint(LINE_STRING): Types: geometry
+- NewType("StarRating", ...): Types: NewTypes
+- Field(ge=1, le=5): Pre-built constraints
+
+No slide covers these two, so say them here:
+- Annotated[X, ...] is type X plus facts about it. The constraints and the description ride along with the type wherever it's used.
+- The docstring is the model's description; Field(description=...) is a field's. Both land in the docs and in JSON Schema.
 -->
 
 ---
