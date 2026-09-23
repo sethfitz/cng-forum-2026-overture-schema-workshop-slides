@@ -122,6 +122,38 @@ Overture ships Parquet; GeoJSON is for single features, extracts and examples. I
 
 ---
 
+## Python type hints
+
+Type hints say what a value should be. Python itself **doesn't check them**:
+
+```python
+def double(n: int) -> int:
+    return n * 2
+
+double("5")  # returns '55', no error
+```
+
+A **type checker** (ty, mypy) reads them before the code runs:
+
+```text
+error[invalid-argument-type]: Expected `int`, found `Literal["5"]`
+```
+
+- `str | None`: a string, or nothing
+- `Annotated[int, ...]`: an `int`, plus facts about it. Python ignores the facts; Pydantic and the schema tools read them.
+
+<!-- _class: dense -->
+
+<!--
+Both measured 2026-09-23: Python 3.12 prints '55'; ty 0.0.81 reports the error above for double("5").
+
+Hints are for tools: the editor, the type checker, and Pydantic, which is the one tool here that enforces them when data arrives (next slide).
+
+The workshop Codespace runs ty. Pylance (pyright) mis-reads Overture's named types; see the NewTypes slide.
+-->
+
+---
+
 ## Pydantic
 
 A Python library: describe data as **classes with type hints**, and it checks input against them.
@@ -171,6 +203,29 @@ Overture uses Pydantic because being Python makes these possible:
 Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema was hard to write correctly and verify, had little IDE support, no refactoring, generic tools couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema (schema/ in the repo) is deprecated, scheduled for removal December 2026.
 
 JSON output above is real json_schema(Rating) output, reordered, property title keys dropped. The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an optional field becomes {"type": "string"} (may be omitted) instead of anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it. Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models. Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model describes both shapes. The point is the model, not parsing into Python; the modelled shape feeds JSON Schema, docs and PySpark checks too.
+-->
+
+---
+
+## Pydantic: `Field`
+
+`Field(...)` holds the facts about one field: what it means, its limits, its name in the data.
+
+```python
+class Rating(BaseModel):
+    stars: Annotated[int, Field(ge=1, le=5,
+                                description="Star rating from 1 (least safe) to 5 (safest).")]
+    road_type: Annotated[str | None, Field(description="Kind of road that was rated.")] = None
+```
+
+- `description=`: what the field means. It goes into the docs and JSON Schema.
+- `ge=`, `le=`, `min_length=`, `max_length=`: limits, checked on validation (see **Constraints**)
+- `alias=`: the field's name in the data (see **Field names: aliases**)
+
+<!--
+Measured on 2.0.0: the stars property in the generated JSON Schema carries description, minimum 1 and maximum 5; Rating(stars=7) fails with "Input should be less than or equal to 5".
+
+Overture puts Field inside Annotated rather than writing stars: int = Field(...). The default stays visible after the =, and a Field inside Annotated can travel with a named type (NewTypes slide).
 -->
 
 ---
@@ -371,10 +426,9 @@ We'll take this apart piece by piece. Where each piece is covered:
 - Geometry with GeometryTypeConstraint(LINE_STRING): Types: geometry
 - NewType("StarRating", ...): Types: NewTypes
 - Field(ge=1, le=5): Pre-built constraints
+- Annotated and Field(description=...): already covered in Background (Python type hints, Pydantic: Field)
 
-No slide covers these two, so say them here:
-- Annotated[X, ...] is type X plus facts about it. The constraints and the description ride along with the type wherever it's used.
-- The docstring is the model's description; Field(description=...) is a field's. Both land in the docs and in JSON Schema.
+The docstring is the model's description, as description= is a field's. Both land in the docs and in JSON Schema.
 -->
 
 ---
