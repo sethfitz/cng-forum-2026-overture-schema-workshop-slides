@@ -406,10 +406,10 @@ We'll take this apart piece by piece over the next slides.
 | Class | Use it for | You get |
 |---|---|---|
 | `Feature` | **your features** | `geometry`, optional `id` and `bbox`; describes GeoJSON features and flat rows |
-| `BaseModel` (Pydantic) | nested structs | nothing extra |
+| `BaseModel` (Pydantic) | nested structs, and tables without geometry | nothing extra |
 | `OvertureFeature` | Overture's own themes | adds required `id`, `theme`, `type`, `version`; optional `sources` |
 
-Your data does not have to be Overture data. Start from `Feature`.
+Start from `Feature`.
 
 ```python
 from overture.schema.system.feature import Feature
