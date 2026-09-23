@@ -1,0 +1,3 @@
+themeSet: ./themes
+html: true
+allowLocalFiles: true

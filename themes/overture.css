@@ -1,0 +1,75 @@
+/* @theme overture */
+
+@import 'default';
+
+:root {
+  --ink: #1b2a3a;
+  --accent: #0e7c86;
+  --muted: #5b6b7a;
+  --code-bg: #f3f5f7;
+}
+
+section {
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  color: var(--ink);
+  font-size: 28px;
+  padding: 56px 72px;
+}
+
+h1, h2 {
+  color: var(--accent);
+}
+
+h2 {
+  font-size: 1.4em;
+}
+
+a {
+  color: var(--accent);
+}
+
+pre, code {
+  background: var(--code-bg);
+}
+
+pre {
+  font-size: 0.72em;
+  line-height: 1.35;
+}
+
+/* Section dividers: `<!-- _class: divider -->` */
+section.divider {
+  background: var(--accent);
+  color: #fff;
+  justify-content: center;
+}
+
+section.divider h1,
+section.divider h2 {
+  color: #fff;
+}
+
+/* Title slide: `<!-- _class: title -->` */
+section.title h1 {
+  font-size: 2em;
+}
+
+section.title p {
+  color: var(--muted);
+}
+
+/* Smaller type for code-heavy slides: `<!-- _class: dense -->` */
+section.dense pre {
+  font-size: 0.6em;
+}
+
+/* Two columns: wrap content in <div class="cols"><div>…</div><div>…</div></div> */
+.cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+.muted {
+  color: var(--muted);
+}
