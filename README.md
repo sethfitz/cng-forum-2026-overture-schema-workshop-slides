@@ -17,6 +17,7 @@ type and call names the way VS Code's language server does. Speaker notes are
 HTML comments on each slide and appear in Marp's presenter view. Write each
 paragraph of a note on one line, with a blank line between paragraphs: the
 presenter view keeps every line break, so hard-wrapped notes wrap twice.
+Use Oxford commas in slides and notes.
 
 Every code sample and command output in the deck was run against the
 `overture-schema` 2.0.0 packages on PyPI (Python 3.12).

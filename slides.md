@@ -20,7 +20,7 @@ Overture Schema Workshop · CNG Forum 2026 · Snowbird
 1. **Background**: JSON Schema and Pydantic
 2. **Why** write a schema as code
 3. **How**: a model, its fields, its constraints
-4. Turn it into a **package**, then into **docs, validation and catalog columns**
+4. Turn it into a **package**, then into **docs, validation, and catalog columns**
 5. Faster starts: **tools** and **agents**
 
 ```console
@@ -80,7 +80,7 @@ JSON Schema describes and validates **JSON**, so JSON is the natural way to writ
                 "survey": {"assessor": "iRAP", "surveyed_on": "2026-05-01"}}}
 ```
 
-- The envelope holds `id`, `bbox` and `geometry`
+- The envelope holds `id`, `bbox`, and `geometry`
 - Your fields go in `properties`, and they can nest, if your tools support it
 - Geometry is written as coordinates
 
@@ -117,7 +117,7 @@ GeoArrow: GeoParquet 1.1 added native encodings "based on GeoArrow" (point, line
 
 Feature handles the envelope (fields in and out of properties), Geometry the encoding (GeoJSON coordinates or WKB), and BBox either GeoJSON's [xmin, ymin, xmax, ymax] array or Parquet's xmin/ymin/xmax/ymax struct.
 
-Overture ships Parquet; GeoJSON is for single features, extracts and examples. In Pydantic terms, GeoJSON is JSON mode (model_validate_json) and the flat row is Python mode (model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
+Overture ships Parquet; GeoJSON is for single features, extracts, and examples. In Pydantic terms, GeoJSON is JSON mode (model_validate_json) and the flat row is Python mode (model_validate). CONCEPTS.md "Why there's an envelope at all" has the long version.
 -->
 
 ---
@@ -140,7 +140,7 @@ error[invalid-argument-type]: Expected `int`, found `Literal["5"]`
 ```
 
 - `str | None`: a string, or nothing
-- `Annotated[int, ...]`: an `int` with extra details attached, such as limits and a description. Python ignores them; Pydantic and the schema tools read them.
+- `Annotated[int, ...]`: an `int` with extra details attached, such as constraints and a description. Python ignores them; Pydantic and the schema tools read them.
 
 <!-- _class: dense -->
 
@@ -195,21 +195,21 @@ json_schema(Rating)
 Overture uses Pydantic because being Python makes these possible:
 
 - **Tooling**: editor support, and generators for Markdown docs and PySpark validation
-- **Nested and tabular**: `Feature`, `Geometry` and `BBox` let one model describe a GeoJSON feature *and* a flat Parquet row
+- **Nested and tabular**: `Feature`, `Geometry`, and `BBox` let one model describe a GeoJSON feature *and* a flat Parquet row
 
 <!-- _class: dense -->
 
 <!--
 Rationale, from CONCEPTS.md "Why Pydantic rather than JSON Schema": hand-written JSON Schema was hard to write correctly and verify, had little IDE support, no refactoring, generic tools couldn't tailor output, and changes needed coordinating across artifacts. The YAML schema (schema/ in the repo) is deprecated, scheduled for removal December 2026.
 
-JSON output above is real json_schema(Rating) output, reordered, property title keys dropped. The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an optional field becomes {"type": "string"} (may be omitted) instead of anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it. Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models. Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model describes both shapes. The same shape feeds JSON Schema, the docs and the PySpark checks.
+JSON output above is real json_schema(Rating) output, reordered, property title keys dropped. The wrapper vs plain Rating.model_json_schema(): it declares the $schema dialect, and an optional field becomes {"type": "string"} (may be omitted) instead of anyOf [string, null] with default null (may be null). `overture-schema json-schema` uses it. Those two are all it changes (source of json_schema() in 2.0.0); it also accepts a union of models. Nested/tabular, checked on the my-schema template: model_validate_json(GeoJSON feature) and model_validate(flat row, geometry as WKB bytes) produce equal objects: evidence that one model describes both shapes. The same shape feeds JSON Schema, the docs, and the PySpark checks.
 -->
 
 ---
 
 ## Pydantic: `Field`
 
-`Field(...)` sets a field's description, its limits and its name in the data.
+`Field(...)` sets a field's description, its constraints, and its name in the data.
 
 ```python
 class Rating(BaseModel):
@@ -219,11 +219,11 @@ class Rating(BaseModel):
 ```
 
 - `description=`: what the field means. It goes into the docs and JSON Schema.
-- `ge=`, `le=`, `min_length=`, `max_length=`: limits, checked on validation (see **Constraints**)
+- `ge=`, `le=`, `min_length=`, `max_length=`: constraints, checked on validation (see **Constraints**)
 - `alias=`: the field's name in the data (see **Field names: aliases**)
 
 <!--
-Measured on 2.0.0: the stars property in the generated JSON Schema has description, minimum 1 and maximum 5; Rating(stars=7) fails with "Input should be less than or equal to 5".
+Measured on 2.0.0: the stars property in the generated JSON Schema has description, minimum 1, and maximum 5; Rating(stars=7) fails with "Input should be less than or equal to 5".
 
 Overture puts Field inside Annotated rather than writing stars: int = Field(...). The default stays visible after the =, and a Field inside Annotated can travel with a named type (NewTypes slide).
 -->
@@ -263,7 +263,7 @@ A data dictionary types a column with its **storage format**:
 | `stars` | integer | Star rating |
 | `road_type` | string | Road type code |
 
-A model gives it a **type of its own**, with the range, the meaning and every legal value attached:
+A model gives it a **type of its own**, with the range, the meaning, and every legal value attached:
 
 ```python
 StarRating = NewType("StarRating", Annotated[uint8, Field(
@@ -499,14 +499,14 @@ class Place(Feature):
     lsad: Annotated[str | None, Field(alias="LSAD")] = None  # the column is LSAD
 ```
 
-- Validation, JSON Schema, docs and PySpark all use the **alias**, the name in the data
+- Validation, JSON Schema, docs, and PySpark all use the **alias**, the name in the data
 - Your Python code uses the field name: `place.lsad`
 - Data that says `lsad` is **ignored**, not rejected
 
 <!--
 Measured on overture-schema 2.0.0 with the my-schema template plus an aliased field: {"LSAD": "25"} populates lsad from a GeoJSON feature and from a flat row; {"lsad": "25"} leaves it None with no error (Feature ignores unknown keys). json_schema() lists "LSAD"; the Markdown docs' Name column says LSAD; the PySpark StructField is "LSAD". model_dump() writes lsad unless you pass by_alias=True.
 
-Overture's own schema aliases class_ to "class" on buildings, land use, land, water, infrastructure, roads, rail and the divisions types.
+Overture's own schema aliases class_ to "class" on buildings, land use, land, water, infrastructure, roads, rail, and the divisions types.
 
 PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note). schema-bootstrap currently lower-cases column names WITHOUT an alias, so its models silently ignore upper-case columns; add aliases by hand until that's fixed.
 -->
@@ -523,7 +523,7 @@ PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note
 | `int8` `int16` `int32` `int64` | `float32` `float64` |
 | `uint8` `uint16` `uint32` | |
 
-Sized types map directly to column types in Parquet, Arrow, Spark and databases like PostgreSQL. JSON only has integers and numbers, so JSON Schema keeps an integer's size as `minimum`/`maximum` bounds and a float's not at all. When unsure, use `int32` and `float64`.
+Sized types map directly to column types in Parquet, Arrow, Spark, and databases like PostgreSQL. JSON only has integers and numbers, so JSON Schema keeps an integer's size as `minimum`/`maximum` bounds and a float's not at all. When unsure, use `int32` and `float64`.
 
 
 <!--
@@ -540,13 +540,13 @@ geometry: Annotated[
 ]
 ```
 
-- The field declares a geometry, not an encoding: GeoJSON coordinates, WKB (as in GeoParquet) and WKT all fit it
+- The field declares a geometry, not an encoding: GeoJSON coordinates, WKB (as in GeoParquet), and WKT all fit it
 - Restrict the allowed shapes: `POINT`, `LINE_STRING`, `POLYGON`,
   `MULTI_POINT`, `MULTI_LINE_STRING`, `MULTI_POLYGON`, `GEOMETRY_COLLECTION`
 - List one type or several; docs say *Allowed geometry types: MultiPolygon, Polygon*, and validation rejects anything else
 
 <!--
-Checked on overture-schema 2.0.0: a Geometry field accepts a GeoJSON dict, WKB bytes and a WKT string alike, and rejects malformed input in each form. In Python the value is a Shapely geometry, and it serializes back to GeoJSON in JSON mode.
+Checked on overture-schema 2.0.0: a Geometry field accepts a GeoJSON dict, WKB bytes, and a WKT string alike, and rejects malformed input in each form. In Python the value is a Shapely geometry, and it serializes back to GeoJSON in JSON mode.
 
 Useful when scripting against the model.
 -->
@@ -585,7 +585,7 @@ The feature's page flattens the struct into dotted rows:
 `survey`'s description comes from its **field**; `Survey`'s docstring goes on its own page.
 
 <!--
-Real output: overture-codegen generate --format markdown --tag my_schema, from the my-schema template, survey rows only (geometry, stars and the rest omitted). Constraints on a struct's fields show on the struct's own page, not on the flattened rows.
+Real output: overture-codegen generate --format markdown --tag my_schema, from the my-schema template, survey rows only (geometry, stars, and the rest omitted). Constraints on a struct's fields show on the struct's own page, not on the flattened rows.
 
 Write a description on every field: it says what the field is FOR, which the type's docstring can't (origin: Address and destination: Address share a docstring). Today a field with no description renders an empty cell, even when its type has a docstring (2.0.0, checked for structs and enums). Codegen will probably fall back to the type's docstring in future (tracked in the schema workspace); a field's own description will still win.
 -->
@@ -594,7 +594,7 @@ Write a description on every field: it says what the field is FOR, which the typ
 
 ## Types: NewTypes
 
-Define a **domain type** once: a name, a description and constraints.
+Define a **domain type** once: a name, a description, and constraints.
 
 ```python
 CountryCodeAlpha2 = NewType("CountryCodeAlpha2", Annotated[
@@ -692,7 +692,7 @@ class RoadSafetyRating(Feature):
     ...
 ```
 
-Express rules with the bounds, enums and decorators we provide, or subclass an available constraint.
+Express rules with the bounds, enums, and decorators we provide, or subclass an available constraint.
 
 <!--
 Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySpark codegen rejects constraint classes it doesn't know (OvertureMaps/schema#632). PatternConstraint is being reworked; don't teach subclassing it yet.
@@ -708,7 +708,7 @@ Subclassing: a custom FieldConstraint reaches the docs and JSON Schema, but PySp
 | `@require_if(...)` | *`speed_limit_kph` is required when `road_type` = `motorway`* | `if` / `then` | `check_require_if` |
 | `Field(ge=1, le=5)` | `≥ 1`, `≤ 5` | `minimum`, `maximum` | `check_bounds` |
 
-Validation enforces all three. Only rules written as data reach the docs, JSON Schema and PySpark.
+Validation enforces all three. Only rules written as data reach the docs, JSON Schema, and PySpark.
 
 <!--
 PySpark drops the function silently: generation succeeds and the generated checks pass rows the Python model rejects.
@@ -769,10 +769,10 @@ def my_schema_provider(types, key, tags):
 my_schema = "my_schema.tags:my_schema_provider"
 ```
 
-Now `--tag my_schema` works in `list-types`, `validate`, `json-schema` and `overture-codegen`.
+Now `--tag my_schema` works in `list-types`, `validate`, `json-schema`, and `overture-codegen`.
 
 <!--
-The feature, system: and overture: tag namespaces are reserved; a provider that sets one is warned and ignored. Tags can say more than "mine": AUTHORING.md's example tags experimental models.
+The feature, system:, and overture: tag namespaces are reserved; a provider that sets one is warned and ignored. Tags can say more than "mine": AUTHORING.md's example tags experimental models.
 -->
 
 ---
@@ -844,7 +844,7 @@ overture-codegen generate --format stac-table-columns --output-dir stac/
  "vector:geometry_types": ["MultiPolygon", "Polygon"]}
 ```
 
-A catalog built from the file alone gets column **names**. This adds types, descriptions and **declared** geometry types: what the model allows, not what the file contains.
+A catalog built from the file alone gets column **names**. This adds types, descriptions, and **declared** geometry types: what the model allows, not what the file contains.
 
 <!--
 Declared, like an enum's values: the model says MultiPolygon or Polygon; a given file may hold only one. Same limitation, other direction, as a DISTINCT over an extract.
@@ -871,7 +871,7 @@ $ schema-bootstrap places.shp --class-name UtahPlace \
     --theme places --type place -o model.py
 ```
 
-- Reads column names, types and geometry from the file (DuckDB)
+- Reads column names, types, and geometry from the file (DuckDB)
 - Finds small value sets that look like vocabularies
 - Reads metadata shipped **beside** the data for descriptions and code lists
 - Everything it could not work out becomes a `TODO`
