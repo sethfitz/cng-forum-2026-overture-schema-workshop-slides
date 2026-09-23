@@ -885,6 +885,15 @@ class Lsad(str, DocumentedEnum):
 
 The tool finds the values. **What they mean is your job.**
 
+<!--
+Lsad, not LSAD: Python names classes in PascalCase (PEP 8's "CapWords"), so the tool builds a
+class name from the column name by lower-casing it and capitalising each word: LSAD -> Lsad,
+place_type -> PlaceType. It can't tell an acronym from a word. PEP 8 itself keeps acronyms
+upper-case (HTTPServerError), so renaming the class LSAD is fine; it's a Python name only.
+The codes are untouched: the value is still "25". Members are UPPER_CASE constants, and a
+code starting with a digit gets a V_ prefix because a Python name can't start with one.
+-->
+
 ---
 
 ## Agent-based: have Claude write the generator
