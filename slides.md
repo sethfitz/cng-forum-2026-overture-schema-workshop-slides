@@ -508,7 +508,7 @@ Measured on overture-schema 2.0.0 with the my-schema template plus an aliased fi
 
 Overture's own schema aliases class_ to "class" on buildings, land use, land, water, infrastructure, roads, rail, and the divisions types.
 
-PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note). schema-bootstrap currently lower-cases column names WITHOUT an alias, so its models silently ignore upper-case columns; add aliases by hand until that's fixed.
+PEP 8: snake_case for attribute names, PascalCase for classes (see the Lsad note). schema-bootstrap lower-cases column names and adds an alias wherever the name changed, so LSAD becomes lsad with alias="LSAD".
 -->
 
 ---
@@ -903,8 +903,7 @@ Overture's own catalog (stac.overturemaps.org, built by OvertureMaps/stac) is na
 Start from the data instead of a blank page.
 
 ```console
-$ schema-bootstrap places.shp --class-name UtahPlace \
-    --theme places --type place -o model.py
+$ schema-bootstrap places.shp --class-name UtahPlace -o model.py
 ```
 
 - Reads column names, types, and geometry from the file (DuckDB)
