@@ -419,6 +419,8 @@ class RoadSafetyRating(Feature):
     stars: StarRating
 ```
 
+Follow along in `notebooks/5-schema-models.ipynb`: a section per concept from here through **Constraints**, most with a **Try it** cell.
+
 <!-- _class: dense -->
 
 <!--
