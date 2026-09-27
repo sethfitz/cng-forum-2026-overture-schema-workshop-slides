@@ -325,12 +325,14 @@ overture-codegen generate --format markdown --tag overture:theme=base
 ## …and validation
 
 ```console
-$ overture-schema validate bathymetry-example.yaml
-✓ Successfully validated bathymetry-example.yaml
+$ overture-schema validate examples/bathymetry-example.yaml
+✓ Successfully validated examples/bathymetry-example.yaml
 
-$ overture-schema validate bad-depth.yaml
+$ overture-schema validate examples/bad-depth.yaml
  ─ Validation Failed ─────────────────────────────
-     depth           -1 ← Input should be greater than or equal to 0
+       ...
+   version  0
+     depth -1 ← Input should be greater than or equal to 0
 ```
 
 `ge=0` on `Depth` rejects the `-1`. The docs listed the same rule as `≥ 0`.
@@ -342,7 +344,7 @@ $ overture-schema validate bad-depth.yaml
 [`gpq`](https://github.com/planetlabs/gpq) converts GeoParquet to GeoJSON features:
 
 ```console
-$ gpq convert bathymetry.parquet --to geojson \
+$ gpq convert examples/bathymetry.parquet --to geojson \
   | jq '.features |= map(.id = .properties.id
         | .bbox = (.properties.bbox | [.xmin, .ymin, .xmax, .ymax])
         | del(.properties.id, .properties.bbox))' \
@@ -353,9 +355,9 @@ $ gpq convert bathymetry.parquet --to geojson \
 GeoJSON keeps `id` and `bbox` at the top level of a feature. `gpq` puts every column under `properties`, so `jq` lifts those two out; the result is a valid GeoJSON feature.
 
 <!--
-Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/tap/gpq). Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may only appear at the top level...)". Negative control: setting one feature's depth to -1 in the stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1. Without --type, validate warns the data matches multiple types.
+examples/bathymetry.parquet is 100 rows of release 2026-08-19.0, written by examples/bathymetry.sql (committed, so the slide works offline). Run 2026-09-22: 3 rows of release 2026-08-19.0 theme=base/type=bathymetry, extracted with DuckDB (hive columns theme/type included), gpq 0.24.0 (brew install planetlabs/tap/gpq). Without the jq step: "illegal properties in feature JSON: ['bbox', 'id'] (these properties may only appear at the top level...)". Negative control: setting one feature's depth to -1 in the stream reports "depth -1 <- Input should be greater than or equal to 0" at feature [1], exit 1. Without --type, validate warns the data matches multiple types.
 
-Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only type/properties/geometry. It can't know which column is the id (GeoParquet has no id convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare (checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox column under properties. The 3-row extract above is GeoParquet 1.0 (DuckDB rewrote it), so it has no covering metadata either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews; last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the PySpark checks instead.
+Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20) emits only type/properties/geometry. It can't know which column is the id (GeoParquet has no id convention), and it ignores GeoParquet 1.1's covering.bbox, which Overture's files declare (checked on the 2026-08-19.0 bathymetry files). Measured 2026-09-23 on gpq's own example-v1.1.0-covering.parquet: --from auto and --from geoparquet give the same output, bbox column under properties. A DuckDB extract is GeoParquet 1.0 (DuckDB rewrote it), so it has no covering metadata either. Open upstream: planetlabs/gpq#270 adds bbox support (no reviews; last gpq release v0.24.0, Nov 2024). Nothing filed for an id column. For data at scale, use the PySpark checks instead.
 -->
 
 ---
@@ -363,13 +365,14 @@ Why the jq: gpq's GeoJSON writer (internal/geojson/recordwriter.go, HEAD a5a6b20
 ## Validating GeoParquet as flat rows
 
 ```console
-$ duckdb <<'SQL' | overture-schema validate --type division --show-field id -
-INSTALL spatial; LOAD spatial; SET s3_region='us-west-2';
+$ duckdb < examples/divisions.sql | overture-schema validate --type division --show-field id -
+```
+
+```sql
 COPY (SELECT ST_AsGeoJSON(geometry) AS geometry, * EXCLUDE geometry
       FROM read_parquet('s3://overturemaps-us-west-2/release/2026-08-19.0/theme=divisions/type=division/*.parquet')
       LIMIT 100)
 TO '/dev/stdout' (FORMAT JSON, ARRAY false);
-SQL
 ```
 
 ```text
@@ -383,7 +386,7 @@ DuckDB writes each row flat, with only the geometry as GeoJSON. `Feature` reads 
 <!-- _class: dense -->
 
 <!--
-Run 2026-09-22 against release 2026-08-19.0 with the PyPI 2.0.0 packages: 99 of the 100 rows validate. The failing one is a known data issue (the data team knows).
+examples/divisions.sql also loads the spatial extension and sets the S3 region; the slide shows only the COPY. Run 2026-09-22 against release 2026-08-19.0 with the PyPI 2.0.0 packages: 99 of the 100 rows validate; re-run 2026-09-26 from the file, same failing row. The failing one is a known data issue (the data team knows).
 
 ST_AsGeoJSON converts only the geometry column; the record is not a GeoJSON Feature (no "type": "Feature", no properties envelope). The gpq route produces real GeoJSON features.
 -->
@@ -470,6 +473,12 @@ height: float64 | None = None   # optional: may be left out
 - `X | None = None` → **optional**
 - `None` is the only default
 
+`Feature`'s own `id` and `bbox` print as `MISSING` when the input leaves them out: a marker for "absent", which output omits rather than writing `null`.
+
+<!--
+Measured on 2.0.0: RoadSafetyRating from a feature without id/bbox reprs as id=MISSING, bbox=MISSING; model_dump(mode="json") omits both keys, while unset optional fields are written as null.
+-->
+
 ---
 
 ## Why no other defaults?
@@ -495,7 +504,7 @@ Source: OvertureMaps/schema#695 (policy, open). Measured there against release 2
 
 ```python
 class Place(Feature):
-    class_: Annotated[PlaceClass, Field(alias="class")]      # class is a keyword
+    class_: Annotated[str, Field(alias="class")]             # class is a keyword
     lsad: Annotated[str | None, Field(alias="LSAD")] = None  # the column is LSAD
 ```
 
@@ -569,6 +578,12 @@ class RoadSafetyRating(Feature):
         Survey | None, Field(description="The survey this rating came from.")
     ] = None
 ```
+
+`@no_extra_fields` rejects keys the struct doesn't declare. `Feature` **ignores** them, so a misspelled top-level field passes validation and is dropped.
+
+<!--
+Measured on 2.0.0 with the my-schema template: survey {"assessor": "iRAP", "rated_by": "me"} fails "Extra inputs are not permitted"; a top-level "spead_limit_kph": 50 validates and disappears. Same behaviour the aliases slide shows for "lsad".
+-->
 
 ---
 
@@ -816,14 +831,14 @@ Tag grammar: [namespace:]predicate[=value], lower-case, one colon and one = at m
 ## Manual creation
 
 1. Edit `my-schema/src/my_schema/models.py` in the Codespaces editor
-2. Registered a new model? Run `uv sync --all-packages`
+2. Registered a new model? Run `uv sync --all-packages`: entry points are read at install time. Edits to a model take effect right away.
 3. Check the tools can see it, then validate some data:
 
 ```console
 $ overture-schema list-types --tag my_schema
 road_safety_rating  feature  my_schema
 
-$ overture-schema validate my-schema/examples/bad.json
+$ overture-schema validate --type road_safety_rating my-schema/examples/bad.json
           geometry      Point ← geometry type not allowed: <GeometryType.POINT: …>
              stars          7 ← Input should be less than or equal to 5
    survey.rated_by       "me" ← Extra inputs are not permitted
@@ -831,8 +846,10 @@ $ overture-schema validate my-schema/examples/bad.json
 
 <!-- _class: dense -->
 
+`--type` names the model. Without it, validation tries every model that could match, which misleads once you have several.
+
 <!--
-No venv activation shown: the Codespace puts .venv/bin on PATH (remoteEnv in devcontainer.json, on the devcontainer-py312 branch / workshop#60, not on main yet). Why --all-packages: my-schema is a uv workspace member sharing the root .venv. Measured 2026-09-23: a bare `uv sync` inside my-schema/ syncs only that member and REMOVES the workshop's other packages (jupyter, duckdb, ...). `uv sync --all-packages` keeps them and registers a new entry point from any directory (same as schema-workspace's `make install`; the workshop has no extras, so --all-extras adds nothing).
+Without --type, a package with two models validated bad.json against both and merged the errors (tester report, 2026-09-26; tracked in the schema workspace). No venv activation shown: the Codespace puts .venv/bin on PATH (remoteEnv in devcontainer.json, on the devcontainer-py312 branch / workshop#60, not on main yet). Why --all-packages: my-schema is a uv workspace member sharing the root .venv. Measured 2026-09-23: a bare `uv sync` inside my-schema/ syncs only that member and REMOVES the workshop's other packages (jupyter, duckdb, ...). `uv sync --all-packages` keeps them and registers a new entry point from any directory (same as schema-workspace's `make install`; the workshop has no extras, so --all-extras adds nothing).
 -->
 
 ---
@@ -870,20 +887,22 @@ Examples: add [[examples.RoadSafetyRating]] rows to pyproject.toml and they appe
 STAC describes the **envelope**: the dataset's metadata. The model describes the **contents**: the structure of the table itself.
 
 ```console
-overture-codegen generate --format stac-table-columns --output-dir stac/
+overture-codegen generate --format stac-table-columns --tag my_schema --output-dir stac/
 ```
 
 ```json
-{"name": "depth", "type": "int32",
- "description": "Depth below surface level of the feature in meters."},
+{"name": "stars", "type": "uint8",
+ "description": "Star rating from 1 (least safe) to 5 (safest)."},
 {"name": "geometry", "type": "binary",
- "vector:geometry_types": ["MultiPolygon", "Polygon"]}
+ "vector:geometry_types": ["LineString"]}
 ```
 
 A catalog built from the file alone gets column **names**. This adds types, descriptions, and **declared** geometry types: what the model allows, not what the file contains.
 
 <!--
-Declared, like an enum's values: the model says MultiPolygon or Polygon; a given file may hold only one. Same limitation, other direction, as a DISTINCT over an extract.
+Output from the stac-table-columns branch (rebased on main 2026-09-26), run against the my-schema template: one road_safety_rating.json holding table:columns, with data_type also on each column (trimmed here). The workshop installs codegen from that branch until #724 is released.
+
+Declared, like an enum's values: the model says LineString; Bathymetry's says MultiPolygon or Polygon, and a given file may hold only one. Same limitation, other direction, as a DISTINCT over an extract.
 
 Open PR: OvertureMaps/schema#724. Constraints and enum values do not fit in a STAC column object; the generator logs what it had to drop.
 
