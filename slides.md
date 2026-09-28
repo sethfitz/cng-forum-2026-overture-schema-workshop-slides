@@ -468,17 +468,19 @@ Import Feature from overture.schema.system.feature. The shorter `from overture.s
 
 ```python
 name: str                       # required: no default
-height: float64 | None = None   # optional: may be left out
+height: float64 | None = None   # optional: absent is null
+id: Omitable[Id]                # optional: absent, never null
 ```
 
 - No default → **required**
 - `X | None = None` → **optional**
 - `None` is the only default
 
-`Feature`'s own `id` and `bbox` print as `MISSING` when the input leaves them out: a marker for "absent", which output omits rather than writing `null`.
+`X | None` is about the value: it may be `null`. `Omitable` is about the key: it may be missing. A JSON object can leave a property out; a table row can't, so a Parquet column has `null` where the value is absent. `Feature`'s `id` and `bbox` use it: GeoJSON lets them be omitted, never `null`. Absent, they print as `MISSING` and output leaves them out.
 
 <!--
-Measured on 2.0.0: RoadSafetyRating from a feature without id/bbox reprs as id=MISSING, bbox=MISSING; model_dump(mode="json") omits both keys, while unset optional fields are written as null.
+Only Feature's id and bbox use Omitable; theme models use X | None = None. Omitable[T] expands to Annotated[T | MISSING, Field(default=MISSING)] (overture/schema/system/optionality.py), built on Pydantic's experimental MISSING sentinel. Plain Pydantic schemas an optional field as anyOf [T, null]; Omitable's is just T, and validation rejects an explicit null.
+Measured on 2.0.0: RoadSafetyRating from a feature without id/bbox reprs as id=MISSING, bbox=MISSING; model_dump(mode="json") omits both keys, while unset optional fields are written as null. Measured on main, 2026-09-27: a toy model's Omitable[int] field schemas as {"type": "integer"}, and a=None raises ValidationError.
 -->
 
 ---
