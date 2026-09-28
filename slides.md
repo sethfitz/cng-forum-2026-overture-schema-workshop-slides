@@ -406,11 +406,13 @@ from typing import Annotated, NewType
 from pydantic import Field
 from overture.schema.system.feature import Feature
 from overture.schema.system.geometric import Geometry, GeometryType, GeometryTypeConstraint
+from overture.schema.system.model_constraint import no_extra_fields
 from overture.schema.system.numeric import uint8
 
 StarRating = NewType("StarRating", Annotated[
     uint8, Field(ge=1, le=5, description="Star rating from 1 (least safe) to 5 (safest).")])
 
+@no_extra_fields
 class RoadSafetyRating(Feature):
     """A road-safety star rating for a stretch of road."""
 
@@ -426,6 +428,7 @@ Follow along in `notebooks/5-schema-models.ipynb`: a section per concept from he
 <!--
 We'll take this apart piece by piece. Where each piece is covered:
 - class RoadSafetyRating(Feature): Pick a base class (next slide)
+- @no_extra_fields: No extra fields
 - geometry and stars have no default, so both are required: Required or optional?
 - uint8: Types: primitives and numbers
 - Geometry with GeometryTypeConstraint(LINE_STRING): Types: geometry
@@ -502,11 +505,36 @@ Source: OvertureMaps/schema#695 (policy, open). Measured there against release 2
 
 ---
 
+## No extra fields
+
+Our opinionated choice: a model declares every field it accepts, and anything else is an error.
+
+```python
+@no_extra_fields
+class Survey(BaseModel):
+    assessor: str
+```
+
+Pydantic **ignores** undeclared keys by default: validation passes, and the key stays in the data. In a table, each one is a column:
+
+- Tables **widen** with whatever each publisher added
+- A **typo** (`spead_limit_kph`) lands as a column, not an error
+- The column has **no type and no validation**
+
+`@no_extra_fields` rejects them, and JSON Schema says `additionalProperties: false`.
+
+<!--
+@no_extra_fields is sugar for ConfigDict(extra="forbid") (overture/schema/system/model_constraint/no_extra_fields.py). Every struct nested in Overture's registered models uses it (measured on main, 2026-09-27: all nested BaseModel subclasses have extra="forbid"). The top-level features don't: they inherit OvertureFeature's extra="allow" plus a validator that rejects any extra not named ext_*, a legacy allowance on a deprecation path (overture/schema/common/feature.py). Measured on main, 2026-09-27: a Feature subclass decorated with @no_extra_fields rejects an extra property ("Extra inputs are not permitted") and its JSON Schema's properties object has additionalProperties: false; undecorated, the extra is dropped and the schema doesn't set additionalProperties. Validation reads the data and reports; it never rewrites the file, so an ignored key is still there afterwards.
+-->
+
+---
+
 ## Field names: aliases
 
 `class` is a Python **keyword**, so a field can't be named `class`. Overture names it `class_`. Other names just break Python's `snake_case` convention. An **alias** keeps the data's name.
 
 ```python
+@no_extra_fields
 class Place(Feature):
     class_: Annotated[str, Field(alias="class")]             # class is a keyword
     lsad: Annotated[str | None, Field(alias="LSAD")] = None  # the column is LSAD
@@ -514,10 +542,10 @@ class Place(Feature):
 
 - Validation, JSON Schema, docs, and PySpark all use the **alias**, the name in the data
 - Your Python code uses the field name: `place.lsad`
-- Data that says `lsad` is **ignored**, not rejected
+- Data that says `lsad` is **rejected**: it's a key `Place` doesn't declare
 
 <!--
-Measured on overture-schema 2.0.0 with the my-schema template plus an aliased field: {"LSAD": "25"} populates lsad from a GeoJSON feature and from a flat row; {"lsad": "25"} leaves it None with no error (Feature ignores unknown keys). json_schema() lists "LSAD"; the Markdown docs' Name column says LSAD; the PySpark StructField is "LSAD". model_dump() writes lsad unless you pass by_alias=True.
+Measured on overture-schema 2.0.0 with the my-schema template plus an aliased field: {"LSAD": "25"} populates lsad from a GeoJSON feature and from a flat row; {"lsad": "25"} fails "Extra inputs are not permitted" once Place is @no_extra_fields (measured 2026-09-27; undecorated, it is silently ignored). json_schema() lists "LSAD"; the Markdown docs' Name column says LSAD; the PySpark StructField is "LSAD". model_dump() writes lsad unless you pass by_alias=True.
 
 Overture's own schema aliases class_ to "class" on buildings, land use, land, water, infrastructure, roads, rail, and the divisions types.
 
@@ -577,16 +605,17 @@ class Survey(BaseModel):
     assessor: str
     surveyed_on: date | None = None
 
+@no_extra_fields
 class RoadSafetyRating(Feature):
     survey: Annotated[
         Survey | None, Field(description="The survey this rating came from.")
     ] = None
 ```
 
-`@no_extra_fields` rejects keys the struct doesn't declare. `Feature` **ignores** them, so a misspelled top-level field passes validation and is dropped.
+Both levels reject a key they don't declare: `rated_by` inside `survey`, or a misspelled top-level field.
 
 <!--
-Measured on 2.0.0 with the my-schema template: survey {"assessor": "iRAP", "rated_by": "me"} fails "Extra inputs are not permitted"; a top-level "spead_limit_kph": 50 validates and disappears. Same behaviour the aliases slide shows for "lsad".
+Measured on 2.0.0 with the my-schema template: survey {"assessor": "iRAP", "rated_by": "me"} fails "Extra inputs are not permitted"; with RoadSafetyRating decorated (workshop schema-bootstrap, 2026-09-27), a top-level "spead_limit_kph": 50 fails the same way; undecorated, it validated and disappeared.
 -->
 
 ---
