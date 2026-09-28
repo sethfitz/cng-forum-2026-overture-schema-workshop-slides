@@ -864,7 +864,7 @@ Tag grammar: [namespace:]predicate[=value], lower-case, one colon and one = at m
 ## Manual creation
 
 1. Edit `my-schema/src/my_schema/models.py` in the Codespaces editor
-2. Registered a new model? Run `uv sync --all-packages`: entry points are read at install time. Edits to a model take effect right away.
+2. Registered a new model? Run `uv sync --all-packages`: the tools find models through entry points in the package's installed metadata, and only an install writes it. Edits to a model take effect right away.
 3. Check the tools can see it, then validate some data:
 
 ```console
