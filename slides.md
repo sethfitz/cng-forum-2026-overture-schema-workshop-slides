@@ -519,15 +519,11 @@ class Survey(BaseModel):
     assessor: str
 ```
 
-Pydantic **ignores** undeclared keys by default: validation passes, and the key stays in the data. In a table, each one is a column:
-
-- Tables **widen** with whatever each publisher added
-- A **typo** (`spead_limit_kph`) lands as a column, not an error
-- The column has **no type and no validation**
-
-`@no_extra_fields` rejects them, and JSON Schema says `additionalProperties: false`.
+Pydantic **ignores** undeclared keys by default: validation passes, and the key stays in the data. In a table, each one is a column with **no type and no validation**, so tables **widen** with whatever each publisher added, and a **typo** (`spead_limit_kph`) lands as a column, not an error. `@no_extra_fields` rejects them.
 
 <!--
+In JSON Schema, @no_extra_fields becomes additionalProperties: false.
+
 @no_extra_fields is sugar for ConfigDict(extra="forbid") (overture/schema/system/model_constraint/no_extra_fields.py). Every struct nested in Overture's registered models uses it (measured on main, 2026-09-27: all nested BaseModel subclasses have extra="forbid"). The top-level features don't: they inherit OvertureFeature's extra="allow" plus a validator that rejects any extra not named ext_*, a legacy allowance on a deprecation path (overture/schema/common/feature.py). Measured on main, 2026-09-27: a Feature subclass decorated with @no_extra_fields rejects an extra property ("Extra inputs are not permitted") and its JSON Schema's properties object has additionalProperties: false; undecorated, the extra is dropped and the schema doesn't set additionalProperties. Validation reads the data and reports; it never rewrites the file, so an ignored key is still there afterwards.
 -->
 
