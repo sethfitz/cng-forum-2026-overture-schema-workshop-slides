@@ -97,11 +97,26 @@ JSON Schema describes and validates **JSON**, so JSON is the natural way to writ
 
 When features differ, intentionally or by accident, every key that appears anywhere becomes a column, and rows get **wide and mostly null**:
 
+<div class="cols">
+<div>
+
+```json
+[{"id": "a", "stars": 4},
+ {"id": "b", "stars": 2, "lanes": 4,
+  "surface": "asphalt"}]
+```
+
+</div>
+<div>
+
 ```text
 id   stars  lanes  surface
 a    4      null   null
 b    2      4      asphalt
 ```
+
+</div>
+</div>
 
 <!-- _class: dense -->
 
