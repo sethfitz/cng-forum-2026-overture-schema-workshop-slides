@@ -318,7 +318,11 @@ overture-codegen generate --format markdown --tag overture:theme=base
 > | `geometry` | geometry | Shape of the underwater area. *Allowed geometry types: MultiPolygon, Polygon* |
 > | `depth` | `Depth` | Depth below surface level of the feature in meters. |
 
-`Depth` gets its own page, listing its constraint: `≥ 0`.
+`Depth` gets its own page, listing its storage type, `int32`, and its constraint, `≥ 0`: a data dictionary entry, generated.
+
+<!--
+Measured 2026-09-30 on the 2.0.0 packages: base/types/depth.md reads "Underlying type: `int32`", then Constraints: ≥ 0, plus ≥ -2147483648 and ≤ 2147483647 "(from int32)". The Bathymetry table's Type cell is just the Depth link; the int32 is on Depth's page, not in the row.
+-->
 
 ---
 
