@@ -23,7 +23,7 @@ Overture Schema Workshop · CNG Forum 2026 · Snowbird
 4. Turn it into a **package**, then into **docs, validation, and catalog columns**
 5. Faster starts: **tools** and **agents**
 
-**Codespace:** `https://bit.ly/4AJl5V1`
+**Codespace:** `https://bit.ly/4jH4Rp8`
 
 ```console
 pip install overture-schema overture-schema-codegen   # Python 3.10+
@@ -1037,6 +1037,6 @@ GATIS: ~/src/sethfitz/gatis-schema -- scripts/bootstrap-models (from the pinned 
 3. Fill in the descriptions and the **meanings** of every coded value
 4. Generate the docs and read them
 
-**Codespace:** `https://bit.ly/4AJl5V1`
+**Codespace:** `https://bit.ly/4jH4Rp8`
 
 <!-- TODO: starter datasets pending (GEM, GATIS, GBFS, HOT, iRAP) -->
